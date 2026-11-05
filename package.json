@@ -1,0 +1,22 @@
+{
+  "name": "northstar-supply",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Example React 18 server-rendered storefront used to benchmark specializing React SSR (Prepack Revived)",
+  "main": "src/app.js",
+  "scripts": {
+    "build": "babel src/app.jsx --out-file src/app.js --plugins=@babel/plugin-transform-react-jsx",
+    "start": "node server.js",
+    "render": "node scripts/render.js"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.25.0",
+    "@babel/core": "^7.25.0",
+    "@babel/plugin-transform-react-jsx": "^7.25.0"
+  },
+  "license": "MIT"
+}
