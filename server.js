@@ -7,7 +7,7 @@
 const http = require("http");
 const React = require("react");
 const ReactDOMServer = require("react-dom/server");
-const App = require("./src/app.js");
+const App = require("./dist/app.js");
 const { generateRequest } = require("./src/data.js");
 
 const port = Number(process.env.PORT) || 3000;

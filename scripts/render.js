@@ -3,7 +3,7 @@
 // Render one page to stdout: node scripts/render.js [seed] [small|large]
 const React = require("react");
 const ReactDOMServer = require("react-dom/server");
-const App = require("../src/app.js");
+const App = require("../dist/app.js");
 const { generateRequest } = require("../src/data.js");
 
 const seed = Number(process.argv[2] || 1);
