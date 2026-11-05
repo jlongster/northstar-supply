@@ -13,7 +13,7 @@ export function CartLineItem(props) {
   var lineTotal = item.qty * item.unitPrice;
   return (
     <li className="ns-cart-item" data-sku={item.sku}>
-      <ProductArt category={item.category || "hand-tools"} size="thumb" />
+      <ProductArt category={item.category || "hand-tools"} art={item.art} size="thumb" />
       <div className="ns-cart-item-main">
         <a className="ns-cart-item-title" href={nav.base + "/p/" + item.sku}>
           {item.title}

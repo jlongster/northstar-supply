@@ -144,6 +144,29 @@ const DESCRIPTIONS = {
   safety: "Certified protection that people will actually wear: lightweight, adjustable and comfortable for a full day on site.",
 };
 
+// Product illustration (public/art/<key>.svg): the category's own drawing unless listed here.
+const ART = {
+  "Engineer's Square": "measuring-square", "Steel Rule": "measuring-square", "Digital Protractor": "measuring-square",
+  "Granite Surface Plate": "measuring-square", "Laser Cross-Line Level": "measuring-tape", "Tape Measure": "measuring-tape",
+  "Water Pump Pliers": "hand-tools-pliers", "Diagonal Cutters": "hand-tools-pliers", "Locking Pliers": "hand-tools-pliers",
+  "Dead-Blow Hammer": "hand-tools-hammer",
+  "Circular Saw": "power-tools-grinder", "Angle Grinder": "power-tools-grinder", "Oscillating Multi-Tool": "power-tools-grinder",
+  "Random Orbit Sander": "power-tools-grinder", "Battery Pack": "power-tools-battery", "Rapid Charger": "power-tools-battery",
+  "Cobalt Drill Bit Set": "cutting-bits", "Step Drill Bit Set": "cutting-bits", "Tap & Die Set": "cutting-bits",
+  "Countersink Set": "cutting-bits", "Carbide End Mill": "cutting-endmill", "Annular Cutter": "cutting-endmill",
+  "Bi-Metal Hole Saw Kit": "cutting-endmill",
+  "Bench Vise": "workholding-vise", "Machine Vise": "workholding-vise", "Magnetic V-Block Pair": "workholding-vise",
+  "Soft Jaw Pads": "workholding-vise", "Fixture Clamp Kit": "workholding-vise", "Spring Clamp Set": "workholding-spring",
+  "Toggle Clamp": "workholding-spring",
+  "Solder Wire": "soldering-spool", "Heat-Shrink Assortment": "soldering-spool", "Desoldering Pump": "soldering-spool",
+  "Ratcheting Crimper": "soldering-crimper", "Wire Stripper": "soldering-crimper", "Precision Tweezers Set": "soldering-crimper",
+  "Clamp Meter": "testing-clamp", "Cable Tracer": "testing-clamp", "Test Lead Kit": "testing-clamp",
+  "Non-Contact Voltage Tester": "testing-pen", "Infrared Thermometer": "testing-pen", "Outlet Tester": "testing-pen",
+  "Earmuffs": "safety-earmuffs", "Half-Mask Respirator": "safety-earmuffs", "First-Aid Kit": "safety-earmuffs",
+  "Hi-Vis Safety Vest": "safety-earmuffs", "Cut-Resistant Gloves": "safety-gloves", "Disposable Nitrile Gloves": "safety-gloves",
+  "Knee Pads": "safety-gloves", "Steel-Toe Overshoes": "safety-gloves",
+};
+
 const VARIANT_SUFFIX = ["", " Kit"];
 const REVIEWERS = ["Dana R., maintenance lead", "Marcus T.", "Priya S., QA inspector", "J. O'Neill", "Sam K., electrician", "Lena W."];
 const REVIEW_BODIES = [
@@ -174,6 +197,7 @@ function buildCatalog() {
           title: brand + " " + name + VARIANT_SUFFIX[v === 1 && rng() < 0.3 ? 1 : 0],
           brand,
           category: cat.slug,
+          art: ART[name] || cat.slug,
           price: Math.round(price * 100) / 100,
           stock: stockRoll < 0.08 ? 0 : stockRoll < 0.2 ? int(1, 5) : int(8, 260),
           rating: int(36, 49) / 10,

@@ -2,7 +2,7 @@ import React from "react";
 import { NavContext } from "../../context/NavContext.js";
 import { cx } from "../../lib/classNames.js";
 
-// Category illustration (public/art/<category>.svg) on a tinted panel. The image is decorative:
+// Product illustration (public/art/<art>.svg, by default the category's) on a tinted panel. The image is decorative:
 // the product title next to it says what it is.
 export function ProductArt(props) {
   var nav = React.useContext(NavContext);
@@ -10,7 +10,7 @@ export function ProductArt(props) {
   return (
     <div className={cx("ns-art", "ns-art-" + size, "ns-art-cat-" + props.category)}>
       <img
-        src={nav.assets + "/art/" + props.category + ".svg"}
+        src={nav.assets + "/art/" + (props.art || props.category) + ".svg"}
         alt=""
         width={size === "large" ? 560 : size === "thumb" ? 72 : 320}
         height={size === "large" ? 420 : size === "thumb" ? 54 : 240}

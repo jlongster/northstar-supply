@@ -255,7 +255,7 @@ function storefrontPage(version, page, appHtml, ms, fellBack, current) {
   <div class="demo-inner">
     <span class="demo-title">Same app, three renderers</span>
     <nav class="demo-switch" aria-label="Renderer">${links}</nav>
-    <span class="demo-stat" title="${escapeHtml(version.summary)}">${version.title} · <span class="demo-time">${ms.toFixed(3)} ms</span> · ${status}</span>
+    <span class="demo-stat" title="${escapeHtml(version.summary)}"><span class="demo-impl">${version.title} · </span><span class="demo-time">${ms.toFixed(3)} ms</span><span class="demo-status"> · ${status}</span></span>
     <span class="demo-links"><a href="${BASE}/compare">Compare</a><a href="${BASE}/">About</a></span>
   </div>
 </div>

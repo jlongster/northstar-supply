@@ -16,7 +16,7 @@ export function HeroSpotlight(props) {
   return (
     <section className="ns-spotlight" data-sku={spot.sku} aria-labelledby="ns-spotlight-title">
       <div className="ns-spotlight-media">
-        <ProductArt category={spot.category || "measuring"} eager={true} />
+        <ProductArt category={spot.category || "measuring"} art={spot.art} eager={true} />
         <span className="ns-badge ns-badge-sale">Deal of the week</span>
       </div>
       <div className="ns-spotlight-body">

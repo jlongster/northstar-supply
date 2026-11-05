@@ -542,7 +542,7 @@ function ProductArt(props) {
   return /* @__PURE__ */ react_default.createElement("div", {
     className: cx("ns-art", "ns-art-" + size, "ns-art-cat-" + props.category)
   }, /* @__PURE__ */ react_default.createElement("img", {
-    src: nav.assets + "/art/" + props.category + ".svg",
+    src: nav.assets + "/art/" + (props.art || props.category) + ".svg",
     alt: "",
     width: size === "large" ? 560 : size === "thumb" ? 72 : 320,
     height: size === "large" ? 420 : size === "thumb" ? 54 : 240,
@@ -563,6 +563,7 @@ function CartLineItem(props) {
     "data-sku": item.sku
   }, /* @__PURE__ */ react_default.createElement(ProductArt, {
     category: item.category || "hand-tools",
+    art: item.art,
     size: "thumb"
   }), /* @__PURE__ */ react_default.createElement("div", {
     className: "ns-cart-item-main"
@@ -888,6 +889,7 @@ function HeroSpotlight(props) {
     className: "ns-spotlight-media"
   }, /* @__PURE__ */ react_default.createElement(ProductArt, {
     category: spot.category || "measuring",
+    art: spot.art,
     eager: true
   }), /* @__PURE__ */ react_default.createElement("span", {
     className: "ns-badge ns-badge-sale"
@@ -1001,6 +1003,7 @@ function ProductCard(props) {
     className: "ns-card-media"
   }, /* @__PURE__ */ react_default.createElement(ProductArt, {
     category: p.category,
+    art: p.art,
     eager: props.index < 4
   }), /* @__PURE__ */ react_default.createElement(ProductBadges, {
     product: p
@@ -1493,6 +1496,7 @@ function ProductDetail(props) {
     className: "ns-pdp-media"
   }, /* @__PURE__ */ react_default.createElement(ProductArt, {
     category: p.category,
+    art: p.art,
     size: "large",
     eager: true
   }), /* @__PURE__ */ react_default.createElement(ProductBadges, {

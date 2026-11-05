@@ -17,7 +17,7 @@ export function ProductDetail(props) {
   return (
     <section className="ns-pdp" data-sku={p.sku}>
       <div className="ns-pdp-media">
-        <ProductArt category={p.category} size="large" eager={true} />
+        <ProductArt category={p.category} art={p.art} size="large" eager={true} />
         <ProductBadges product={p} />
       </div>
       <div className="ns-pdp-info">

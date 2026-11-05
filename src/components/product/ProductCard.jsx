@@ -29,7 +29,7 @@ export function ProductCard(props) {
       })}
     >
       <div className="ns-card-media">
-        <ProductArt category={p.category} eager={props.index < 4} />
+        <ProductArt category={p.category} art={p.art} eager={props.index < 4} />
         <ProductBadges product={p} />
       </div>
       <div className="ns-card-body">

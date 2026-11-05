@@ -132,7 +132,8 @@ function matchRoute(path) {
 }
 
 function buildHome(today) {
-  const featured = PRODUCTS.filter((p) => p.featured).slice(0, 8);
+  // Best sellers: the first featured product of each category.
+  const featured = CATEGORIES.map((c) => PRODUCTS.find((p) => p.featured && p.category === c.slug) || PRODUCTS.find((p) => p.category === c.slug));
   const deal = PRODUCTS.filter((p) => p.originalPrice && p.stock > 5)
     .map((p) => ({ p, off: (p.originalPrice - p.price) / p.originalPrice }))
     .sort((a, b) => b.off - a.off || a.p.order - b.p.order)[0].p;
@@ -142,6 +143,7 @@ function buildHome(today) {
     spotlight: {
       sku: deal.sku,
       category: deal.category,
+      art: deal.art,
       headline: deal.title,
       blurb: deal.description,
       price: deal.price,
@@ -289,6 +291,7 @@ function card(p, today) {
     title: p.title,
     brand: p.brand,
     category: p.category,
+    art: p.art,
     price: p.price,
     stock: p.stock,
     rating: p.rating,
@@ -334,7 +337,7 @@ function buildCart(cookie) {
   return Object.assign({}, CART_TERMS, {
     items: parseCart(cookie).map((i) => {
       const p = BY_SKU.get(i.sku);
-      const item = { sku: p.sku, title: p.title, category: p.category, qty: i.qty, unitPrice: p.price };
+      const item = { sku: p.sku, title: p.title, category: p.category, art: p.art, qty: i.qty, unitPrice: p.price };
       if (i.qty > p.stock) item.backordered = true;
       return item;
     }),
