@@ -6,7 +6,7 @@ and a light/dark theme. It uses function components, four contexts (theme, local
 `useMemo`/`useId`, fragments, inline styles, `dangerouslySetInnerHTML`, forms, and user text that
 needs a lot of HTML escaping.
 
-![Render time per page: React renderToString vs Prepack vs freezedry](docs/ssr-bars.png)
+![Full catalog page (192 products), median render time with the JIT: React renderToString vs Prepack vs freezedry](docs/ssr-bars.png)
 
 It is the benchmark app for
 [prepack-revived](https://github.com/jlongster/prepack-revived), which specializes React SSR for a
