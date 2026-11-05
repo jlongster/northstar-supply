@@ -5,7 +5,7 @@
   "description": "Example React 18 server-rendered storefront used to benchmark specializing React SSR (Prepack Revived)",
   "main": "src/app.js",
   "scripts": {
-    "build": "babel src/app.jsx --out-file src/app.js --plugins=@babel/plugin-transform-react-jsx",
+    "build": "babel src/app.jsx --out-file src/app.js",
     "start": "node server.js",
     "render": "node scripts/render.js"
   },
