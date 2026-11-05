@@ -10,7 +10,8 @@
 //        /p/:sku           product detail    /cart             cart
 //        /signin           sign-in stub      (anything else)   404 page, rendered by the app
 //      listings take sort=, in_stock=1, brand= (repeatable), price= (repeatable) and page= (or page=all)
-//      POST /cart/add, /cart/update, /theme, /signin, /signout: update a cookie, then 303 back
+//      POST /cart/add, /cart/update, /theme, /signin, /signout: update a cookie, then go back
+//      (a 200 with a Refresh header; see redirectWithCookies)
 //   <base>/compare                   renders the same inputs with all three in-process, checks the
 //                                    HTML is identical and shows render times and fallback rates
 //   <base>/styles.css, /art/*.svg, /fonts/*.woff2   static files from public/
@@ -116,7 +117,7 @@ async function handle(req, res) {
   send(res, page.status, storefrontPage(version, page, html, ms, fellBack, storePath + url.search), headers);
 }
 
-// Form posts: update a cookie, then redirect (303) back to a page of the same renderer.
+// Form posts: update a cookie, then redirect back to a page of the same renderer.
 async function handleAction(req, res, version, storePath) {
   const form = new URLSearchParams(await readBody(req));
   const cookies = parseCookies(req.headers.cookie);
@@ -156,8 +157,26 @@ async function handleAction(req, res, version, storePath) {
   } else {
     return plain(res, 404, "Not found");
   }
-  res.writeHead(303, { location: dest, "set-cookie": set, "cache-control": "no-store" });
-  res.end();
+  redirectWithCookies(res, dest, set);
+}
+
+// Post/redirect/get, but without a 3xx: the site's proxy follows redirects itself (dropping the
+// Set-Cookie headers on the way), so the browser gets a 200 that sets the cookies and moves on with
+// a Refresh header, a meta refresh and location.replace (which keeps the post out of history).
+function redirectWithCookies(res, dest, cookies) {
+  res.writeHead(200, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-store",
+    refresh: `0;url=${dest}`,
+    "set-cookie": cookies,
+  });
+  res.end(`<!doctype html>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="0;url=${escapeHtml(dest)}">
+<title>Redirecting…</title>
+<script>location.replace(${JSON.stringify(dest).replace(/</g, "\\u003c")})</script>
+<p><a href="${escapeHtml(dest)}">Continue</a></p>
+`);
 }
 
 function readBody(req) {
