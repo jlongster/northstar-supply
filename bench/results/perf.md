@@ -1,22 +1,41 @@
-# react-bench perf (2026-11-05T18:54:40.726Z)
+# Render-time benchmark
 
-node v26.7.0, AMD EPYC 9554P 64-Core Processor x4, linux 6.12.115; 1s warm-up + 2s timed per cell, 2 interleaved round(s). Load average before/after: 4.3 3.0 3.2 / 4.8 3.4 3.3.
+`node scripts/bench.js` and `node --jitless scripts/bench.js` (raw numbers in `jit.json` and
+`jitless.json`). One process per run, renderers interleaved per input with the order rotated, after
+a warm-up; 8 rounds (JIT) or 2 rounds (jitless) over each group. Node v26.7.0 on a shared 4-vCPU
+AMD EPYC 9554P VM (load average about 2), 2026-11-05.
 
-## Throughput (warm, cycling through corpus)
+Groups: the live-store check corpus (`store/corpus.js`, 590 random requests across every route
+plus 10 whole-catalog listings) and the random benchmark corpus (`src/data.js`, 475 small pages and
+25 listings of about 200 products). "fb" is the share of renders a specialized build handed to
+React.
 
-renders/s and speedup are medians over rounds (speedup = median of per-round impl/baseline ratios); latency columns come from the median round.
+## JIT
 
-| engine | page | impl | renders/s | speedup | mean ms | p50 ms | p90 ms | p99 ms | alloc KB/render | avg HTML KB |
-|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| jit | small | baseline (ReactDOMServer.renderToString) | 13,507 | 1.00x | 0.075 | 0.067 | 0.088 | 0.246 | 136.6 | 5.9 |
-| jit | small | northstar dist/render-prepack.js | 70,244 | 5.21x | 0.013 | 0.011 | 0.016 | 0.025 | 15.4 | 5.9 |
-| jit | small | northstar dist/render-hybrid.js | 67,321 | 4.99x | 0.015 | 0.012 | 0.018 | 0.037 | 16.1 | 5.9 |
-| jit | large | baseline (ReactDOMServer.renderToString) | 309 | 1.00x | 3.233 | 3.011 | 4.144 | 6.057 | 6,409 | 283.7 |
-| jit | large | northstar dist/render-prepack.js | 1,400 | 4.52x | 0.714 | 0.667 | 0.781 | 1.628 | 794.7 | 283.7 |
-| jit | large | northstar dist/render-hybrid.js | 1,407 | 4.55x | 0.703 | 0.652 | 0.932 | 1.291 | 723.4 | 283.7 |
-| jitless | small | baseline (ReactDOMServer.renderToString) | 1,656 | 1.00x | 0.509 | 0.502 | 0.636 | 0.780 | 155.1 | 5.9 |
-| jitless | small | northstar dist/render-prepack.js | 17,972 | 11.20x | 0.057 | 0.055 | 0.075 | 0.109 | 16.3 | 5.9 |
-| jitless | small | northstar dist/render-hybrid.js | 17,061 | 10.44x | 0.066 | 0.048 | 0.065 | 0.270 | 17.6 | 5.9 |
-| jitless | large | baseline (ReactDOMServer.renderToString) | 46 | 1.00x | 21.302 | 21.281 | 23.219 | 25.517 | 7,180 | 283.8 |
-| jitless | large | northstar dist/render-prepack.js | 304 | 6.60x | 4.881 | 2.675 | 10.444 | 16.654 | 838.3 | 283.7 |
-| jitless | large | northstar dist/render-hybrid.js | 521 | 11.24x | 1.949 | 1.882 | 2.239 | 3.084 | 784.1 | 283.7 |
+| group | inputs | avg HTML | renderToString p50 | Prepack p50 | Hybrid p50 |
+|---|---:|---:|---:|---:|---:|
+| store pages | 590 | 20.5 KB | 160.9 µs | 31.2 µs (**5.2×**, fb 0%) | 33.2 µs (**4.8×**, fb 0%) |
+| whole catalog (192 products) | 10 | 300 KB | 2.87 ms | 0.56 ms (**5.1×**, fb 0%) | 0.55 ms (**5.2×**, fb 0%) |
+| benchmark small | 475 | 9.9 KB | 109.5 µs | 24.2 µs (**4.5×**, fb 0%) | 24.3 µs (**4.5×**, fb 0.2%) |
+| benchmark large | 25 | 310 KB | 3.09 ms | 0.73 ms (**4.3×**, fb 0%) | 0.72 ms (**4.3×**, fb 0%) |
+
+## jitless
+
+| group | inputs | avg HTML | renderToString p50 | Prepack p50 | Hybrid p50 |
+|---|---:|---:|---:|---:|---:|
+| store pages | 590 | 20.5 KB | 1.15 ms | 135 µs (**8.5×**) | 120 µs (**9.6×**) |
+| whole catalog (192 products) | 10 | 300 KB | 21.4 ms | 1.83 ms (**11.7×**) | 1.84 ms (**11.6×**) |
+| benchmark small | 475 | 9.9 KB | 754 µs | 93 µs (**8.1×**) | 81 µs (**9.3×**) |
+| benchmark large | 25 | 310 KB | 23.4 ms | 2.26 ms (**10.4×**) | 2.23 ms (**10.5×**) |
+
+## Per request on the live server
+
+`node scripts/server-timing.js http://127.0.0.1:5180/northstar 300 30`, through the site's proxy:
+the `Server-Timing` render duration of 300 store paths from the live corpus and 30 whole-catalog
+listings, the same paths for each renderer, interleaved, after a warm-up pass. Each request renders
+once between HTTP handling, so the JIT is less warm than in the loop above.
+
+| page | renderToString median | Prepack | Hybrid |
+|---|---:|---:|---:|
+| store pages | 0.231 ms | 0.077 ms (3.0×) | 0.055 ms (4.2×) |
+| whole catalog | 3.47 ms | 0.96 ms (3.6×) | 0.62 ms (5.6×) |

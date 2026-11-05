@@ -31,7 +31,7 @@ const OUT = path.join(ROOT, "dist", "render-hybrid.js");
 // listings, and benchmark-corpus small and large pages.
 const TRAIN_LIVE = 500;
 const TRAIN_ALL = 3;
-const TRAIN_SMALL = 300;
+const TRAIN_SMALL = 600;
 const TRAIN_LARGE = 10;
 const TRAIN_TOTAL = TRAIN_LIVE + TRAIN_ALL + TRAIN_SMALL + TRAIN_LARGE;
 

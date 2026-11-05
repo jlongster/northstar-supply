@@ -1,0 +1,129 @@
+{
+ "meta": {
+  "node": "v26.7.0",
+  "jitless": true,
+  "rounds": 2,
+  "cpus": 4,
+  "cpu": "AMD EPYC 9554P 64-Core Processor",
+  "load": [
+   1.7,
+   1.76,
+   2.07
+  ],
+  "date": "2026-11-05T20:01:08.464Z"
+ },
+ "results": [
+  {
+   "group": "store pages",
+   "inputs": 590,
+   "avgKB": 20.501236427436442,
+   "renderers": [
+    {
+     "id": "react",
+     "p50": 1.1469830000000911,
+     "p90": 3.4184239999995043,
+     "speedup": 1,
+     "fallbackRate": 0
+    },
+    {
+     "id": "prepack",
+     "p50": 0.1350230000002739,
+     "p90": 0.349514999999883,
+     "speedup": 8.494723121229454,
+     "fallbackRate": 0
+    },
+    {
+     "id": "hybrid",
+     "p50": 0.11983999999984007,
+     "p90": 0.3326100000003862,
+     "speedup": 9.570952937263199,
+     "fallbackRate": 0
+    }
+   ]
+  },
+  {
+   "group": "whole catalog (192 products)",
+   "inputs": 10,
+   "avgKB": 300.00234375,
+   "renderers": [
+    {
+     "id": "react",
+     "p50": 21.39720799999941,
+     "p90": 22.05778999999984,
+     "speedup": 1,
+     "fallbackRate": 0
+    },
+    {
+     "id": "prepack",
+     "p50": 1.8329030000004423,
+     "p90": 1.892982999999731,
+     "speedup": 11.673944556801013,
+     "fallbackRate": 0
+    },
+    {
+     "id": "hybrid",
+     "p50": 1.8429980000000796,
+     "p90": 1.927085000000261,
+     "speedup": 11.610000661964085,
+     "fallbackRate": 0
+    }
+   ]
+  },
+  {
+   "group": "benchmark small",
+   "inputs": 475,
+   "avgKB": 9.926188322368422,
+   "renderers": [
+    {
+     "id": "react",
+     "p50": 0.7534810000015568,
+     "p90": 1.1074029999999766,
+     "speedup": 1,
+     "fallbackRate": 0
+    },
+    {
+     "id": "prepack",
+     "p50": 0.09292999999888707,
+     "p90": 0.14185299999917333,
+     "speedup": 8.10804906930572,
+     "fallbackRate": 0
+    },
+    {
+     "id": "hybrid",
+     "p50": 0.08088199999838253,
+     "p90": 0.1288539999986824,
+     "speedup": 9.315805741903327,
+     "fallbackRate": 0.002105263157894737
+    }
+   ]
+  },
+  {
+   "group": "benchmark large (~200 products)",
+   "inputs": 25,
+   "avgKB": 310.0005859375,
+   "renderers": [
+    {
+     "id": "react",
+     "p50": 23.37720199999967,
+     "p90": 25.30868299999929,
+     "speedup": 1,
+     "fallbackRate": 0
+    },
+    {
+     "id": "prepack",
+     "p50": 2.2556280000007973,
+     "p90": 2.618363000001409,
+     "speedup": 10.363943877266733,
+     "fallbackRate": 0
+    },
+    {
+     "id": "hybrid",
+     "p50": 2.2340149999999994,
+     "p90": 2.6796849999991537,
+     "speedup": 10.46420995382738,
+     "fallbackRate": 0
+    }
+   ]
+  }
+ ]
+}

@@ -128,4 +128,64 @@ Before any visual detail, the demo did not behave like a website:
 
 ## Part 2: the redesign
 
-See below (written after the redesign).
+### What changed in behaviour (the prerequisites)
+
+- **A real store.** `store/catalog.js` holds a fixed catalog (8 categories × 24 products, generated
+  once from a fixed seed: same products, prices and stock on every visit). `store/page.js` builds the
+  app's data from that catalog plus the request: route, query, sort, filters, page, and cookies for
+  the cart, theme and signed-in state. Defaults: light theme, en-US / USD, signed out, empty cart.
+  The random generator in `src/data.js` is kept, only for the benchmark corpus.
+- **Every link works under the base path.** The app gets `data.nav` (`base` = the current
+  renderer's prefix such as `/northstar/hybrid`, `assets`, `view`, `path`, `current`) and builds
+  every link and form action from it. The server implements home, all products, category, search,
+  product detail, cart, a sign-in stub and an app-rendered 404, plus form posts for add to cart,
+  quantity update/remove, theme and sign in/out. Every route exists in all three renderers.
+- **Controls do something, without JavaScript.** Filters and sort are one GET form (the sort
+  `<select>` joins it with `form="ns-filter-form"`); a 6-line script in the page shell only
+  auto-submits on change and collapses the filter panel on phones. Add-to-cart is a POST form.
+
+### Design decisions
+
+| area | before | after |
+|---|---|---|
+| type | 13 sizes, 14 px body, system font fallback (monospace in some environments) | self-hosted Inter (variable, latin + latin-ext, 133 KB), 8-step scale 12/13/14/15/18/22/28/48 px, 15 px body, tight tracking on headings only |
+| colour | sky blue + red + green + amber chips + gradients, three random themes | warm neutral greys, one accent (safety orange `#c2410c`, white text 5.2:1) for primary actions, sale prices and focus; green/amber only for stock state; optional dark theme behind a header toggle (cookie) |
+| contrast | muted text 4.34:1 on tinted boxes, disabled controls 1.95–2.93:1 | body muted text `#57534e` 7.6:1, faint `#78716c` 4.8:1 (counts, placeholders), disabled buttons use a neutral fill with 7.0:1 text, accent text 5.2:1, dark theme muted `#a8a29e` 6.9:1 on `#1c1917` |
+| layout | filters / products / quote in three columns, no max width | 1280 px container, 24 px gutters, two columns on listings (232 px filters, 4-column card grid at 1440 px), cart moved to its own page behind a header link with a count badge |
+| header | logo, search, greeting, points badge in one row; nav row overflowing | sticky, translucent: logo, a 640 px search with an inline submit, then theme / account / cart icons; category row scrolls horizontally with an edge fade on small screens |
+| cards | tinted sub-boxes for specs, price, stock and review; holes from equal heights | image panel, brand, 2-line clamped title (fixed height), stars, price, stock line, full-width add-to-cart; the whole card is one link (stretched title link) with hover border + shadow and a visible focus ring |
+| imagery | none | 24 flat SVG illustrations in one palette (3 per category, chosen by product type), on a neutral panel; decorative (`alt=""`), lazy-loaded below the fold |
+| price | 24 px price, red "Save 26 %" chip, strike-through | 18 px (30 px on the product page) bold price, muted strike-through with a screen-reader "Was", accent "−26 %" |
+| states | empty search shows "Reset Filters" that does nothing; negative total on an empty quote | search results header ("Results for “drill”"), active-filter chips that remove themselves, empty states with next steps and category links, an empty-cart page, a 404 page with links, one-time confirmations ("Added … to your cart") |
+| mobile | 4-row demo bar, 3-row promo, open filters above products | 40 px demo bar, header = logo + icons, full-width search below; filters collapse into a disclosure; 2-column card grid; cart rows reflow |
+| demo chrome | loud bar with coloured dots; separate dark-gradient doc style | one quiet near-black bar: a segmented React / Prepack / Hybrid switch that keeps the current URL, the render time, and "specialized" or "fell back to React"; landing and compare pages use the store's palette and type |
+
+### Before and after
+
+| page | before | after |
+|---|---|---|
+| home, desktop | `before/home-desktop.png` | `after/home-desktop.png` |
+| home, mobile | `before/home-mobile.png` | `after/home-mobile.png` |
+| large listing | `before/large-desktop.png`, `before/large-mobile.png` | `after/large-desktop.png`, `after/large-mobile.png` (View all, 192 products) |
+| category | – | `after/category-desktop.png`, `after/category-mobile.png` |
+| search | `before/search404-desktop.png` (404) | `after/search-desktop.png`, `after/search-empty-desktop.png` |
+| product page | – | `after/product-desktop.png`, `after/product-mobile.png` |
+| cart | (quote aside in `before/home-desktop.png`) | `after/cart-desktop.png`, `after/cart-mobile.png` |
+| sign in, 404 | – | `after/signin-*.png`, `after/notfound-*.png` |
+| dark theme | `before/dark-desktop.png`, `before/contrast-desktop.png` | `after/dark-desktop.png`, `after/dark-category-desktop.png` |
+| compare | `before/compare-desktop.png`, `before/compare-mobile.png` | `after/compare-desktop.png`, `after/compare-mobile.png` |
+| landing | `before/landing-desktop.png` | `after/landing-desktop.png` |
+
+![Home, before](screenshots/before/home-desktop.png)
+![Home, after](screenshots/after/home-desktop.png)
+![Category, after](screenshots/after/category-desktop.png)
+![Product, after](screenshots/after/product-desktop.png)
+![Cart, after](screenshots/after/cart-desktop.png)
+![Mobile home, before and after](screenshots/before/home-mobile.png) ![](screenshots/after/home-mobile.png)
+
+### Known limits
+
+- Product art is illustrative: one drawing per product type, so a category page repeats each
+  drawing a few times.
+- The dark theme keeps light image panels so the illustrations stay legible.
+- Checkout is intentionally disabled; sign-in accepts any input and uses a sample trade account.

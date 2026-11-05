@@ -1857,7 +1857,7 @@ a.ns-page-link:hover {
 .ns-summary-rows {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 10px 16px;
+  gap: 10px 0;
   margin: 20px 0;
   padding-top: 20px;
   border-top: 1px solid var(--border);
@@ -1865,6 +1865,7 @@ a.ns-page-link:hover {
 }
 
 .ns-summary-rows dt {
+  padding-right: 16px;
   color: var(--muted);
 }
 
@@ -2281,6 +2282,12 @@ a.ns-page-link:hover {
   .ns-badges {
     top: 8px;
     left: 8px;
+    gap: 4px;
+  }
+
+  .ns-card .ns-badge {
+    font-size: 11px;
+    padding: 2px 6px;
   }
 
   .ns-values {

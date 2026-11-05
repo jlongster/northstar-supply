@@ -205,6 +205,7 @@ function buildListing(route, q, today) {
   const brandScope = scope.filter((p) => byStock(p) && byPrice(p));
   const priceScope = scope.filter((p) => byStock(p) && byBrand(p));
   const brandNames = Array.from(new Set(scope.map((p) => p.brand))).sort();
+  // (A search with no results has no brands; the brand group is then left out.)
   const filters = [
     {
       id: "brand",
@@ -226,7 +227,7 @@ function buildListing(route, q, today) {
         selected: prices.includes(b.value),
       })),
     },
-  ];
+  ].filter((group) => group.options.length > 0);
 
   const title = category ? category.label : route.kind === "search" ? (query ? "Results for “" + query + "”" : "Search") : "All products";
   const breadcrumbs = [{ href: "/", label: "Home" }];
