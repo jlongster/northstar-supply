@@ -6,12 +6,12 @@
   "main": "dist/app.js",
   "scripts": {
     "build": "node scripts/build.js",
-    "test": "npm run build && node test/compare.js",
-    "start": "node server.js",
-    "render": "node scripts/render.js",
     "build:prepack": "node scripts/build-prepack.js",
     "build:hybrid": "node scripts/build-hybrid.js",
-    "test:specialized": "node test/compare.js dist/render-prepack.js && node test/compare.js dist/render-hybrid.js"
+    "build:all": "npm run build && npm run build:prepack && npm run build:hybrid",
+    "test": "node test/compare.js",
+    "start": "node server.js",
+    "render": "node scripts/render.js"
   },
   "dependencies": {
     "react": "18.3.1",

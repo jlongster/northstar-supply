@@ -1,19 +1,20 @@
 import React from "react";
+import { NavContext } from "../../context/NavContext.js";
 import { UserContext } from "../../context/UserContext.js";
 import { AvatarBadge } from "../ui/AvatarBadge.jsx";
+import { Icon } from "../ui/Icon.jsx";
 import { LoyaltyBadge } from "./LoyaltyBadge.jsx";
 
-// Signed-in summary, or sign-in links for anonymous visitors.
+// Account link: "Sign in" for anonymous visitors, avatar + name + tier when signed in.
 export function UserMenu() {
+  var nav = React.useContext(NavContext);
   var user = React.useContext(UserContext);
   if (!user) {
     return (
       <div className="ns-user ns-user-anon" data-authenticated={false}>
-        <a href="/signin" className="ns-link">
-          Sign in
-        </a>
-        <a href="/register" className="ns-link ns-link-cta">
-          Trade Account
+        <a href={nav.base + "/signin"} className="ns-header-link">
+          <Icon name="user" />
+          <span className="ns-header-link-label">Sign in</span>
         </a>
       </div>
     );
@@ -24,16 +25,11 @@ export function UserMenu() {
       data-authenticated={true}
       data-user-id={user.id}
     >
-      <>
+      <a href={nav.base + "/signin"} className="ns-header-link" title={"Account: " + user.name}>
         <AvatarBadge name={user.name} color={user.avatarColor} />
-        <span className="ns-greeting">Hi, {user.name}</span>
+        <span className="ns-header-link-label ns-greeting">{user.name}</span>
         <LoyaltyBadge tier={user.tier} points={user.points} />
-        {user.savedCount > 0 ? (
-          <a href="/saved" className="ns-saved-link">
-            Saved ({user.savedCount})
-          </a>
-        ) : null}
-      </>
+      </a>
     </div>
   );
 }

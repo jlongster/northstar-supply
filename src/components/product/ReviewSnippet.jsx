@@ -7,20 +7,22 @@ export function ReviewSnippet(props) {
     return null;
   }
   return (
-    <blockquote
+    <figure
       className="ns-review"
       data-verified={Boolean(review.verified)}
     >
-      <p className="ns-review-body">“{review.body}”</p>
-      <footer className="ns-review-meta">
+      <blockquote className="ns-review-body">
+        <p>“{review.body}”</p>
+      </blockquote>
+      <figcaption className="ns-review-meta">
         <span className="ns-review-author">{review.author}</span>
         {review.verified ? (
-          <span className="ns-review-badge">Verified Buyer</span>
+          <span className="ns-review-badge">Verified buyer</span>
         ) : null}
         <time className="ns-review-date">
           {formatDateUTC(review.createdAtSec, false)}
         </time>
-      </footer>
-    </blockquote>
+      </figcaption>
+    </figure>
   );
 }

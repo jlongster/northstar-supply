@@ -2,7 +2,7 @@
 // (hybrid/react/ in github.com/jlongster/prepack-revived). Do not edit.
 //
 // render(data) returns exactly ReactDOMServer.renderToString(<App data={data} />). The templates
-// (`__hyOut.t` at the end of the module function) were learned from 70 traced training requests;
+// (`__hyOut.t` at the end of the module function) were learned from 813 traced training requests;
 // every assumption they make is a runtime guard, and a failed guard renders the request with React.
 "use strict";
 
@@ -25,54 +25,40 @@ var LocaleContext = react_default.createContext({
   decSep: "."
 });
 
+// src/context/NavContext.js
+var NavContext = react_default.createContext({
+  base: "",
+  assets: "",
+  view: "home",
+  path: "/",
+  current: "/"
+});
+
 // src/context/ThemeContext.js
 var ThemeContext = react_default.createContext("light");
 
 // src/context/UserContext.js
 var UserContext = react_default.createContext(null);
 
-// src/lib/catalog.js
-function computeCatalogStats(products) {
-  var inStockCount = 0;
-  var onSaleCount = 0;
-  for (var i = 0; i < products.length; i++) {
-    var p = products[i];
-    if (p.stock > 0) inStockCount++;
-    if (typeof p.originalPrice === "number" && p.originalPrice > p.price) {
-      onSaleCount++;
+// src/lib/classNames.js
+function cx() {
+  var classes = "";
+  for (var i = 0; i < arguments.length; i++) {
+    var arg = arguments[i];
+    if (!arg) continue;
+    if (typeof arg === "string") {
+      classes = classes ? classes + " " + arg : arg;
+    } else if (typeof arg === "object") {
+      var keys = Object.keys(arg);
+      for (var k = 0; k < keys.length; k++) {
+        var key = keys[k];
+        if (arg[key]) {
+          classes = classes ? classes + " " + key : key;
+        }
+      }
     }
   }
-  return {
-    visibleCount: products.length,
-    inStockCount: inStockCount,
-    onSaleCount: onSaleCount
-  };
-}
-
-// src/lib/cart.js
-function computeCartTotals(cart, user) {
-  var subtotal = 0;
-  var unitCount = 0;
-  for (var i = 0; i < cart.items.length; i++) {
-    var it = cart.items[i];
-    subtotal += it.qty * it.unitPrice;
-    unitCount += it.qty;
-  }
-  var discountRate = user && user.tier === "vip" ? 0.1 : user && user.tier === "pro" ? 0.05 : 0;
-  var memberDiscount = subtotal > 0 ? -(subtotal * discountRate) : 0;
-  var afterDiscount = subtotal + memberDiscount + cart.creditAdjustment;
-  var taxable = afterDiscount > 0 ? afterDiscount : 0;
-  var shipping = unitCount === 0 || taxable >= cart.freeShippingThreshold ? 0 : 14.95;
-  var tax = taxable * cart.taxRate;
-  var grandTotal = afterDiscount + shipping + tax;
-  return {
-    subtotal: subtotal,
-    unitCount: unitCount,
-    memberDiscount: memberDiscount,
-    shipping: shipping,
-    tax: tax,
-    grandTotal: grandTotal
-  };
+  return classes;
 }
 
 // src/lib/numbers.js
@@ -113,25 +99,521 @@ function formatMoney(amount, locale) {
   return neg && abs > 0 ? "-" + formatted : formatted;
 }
 
-// src/lib/classNames.js
-function cx() {
-  var classes = "";
-  for (var i = 0; i < arguments.length; i++) {
-    var arg = arguments[i];
-    if (!arg) continue;
-    if (typeof arg === "string") {
-      classes = classes ? classes + " " + arg : arg;
-    } else if (typeof arg === "object") {
-      var keys = Object.keys(arg);
-      for (var k = 0; k < keys.length; k++) {
-        var key = keys[k];
-        if (arg[key]) {
-          classes = classes ? classes + " " + key : key;
-        }
-      }
+// src/components/layout/AnnouncementBanner.jsx
+function AnnouncementBanner(props) {
+  var locale = react_default.useContext(LocaleContext);
+  var promo = props.promo;
+  if (!promo) {
+    return null;
+  }
+  return /* @__PURE__ */ react_default.createElement("section", {
+    className: cx("ns-promo", {
+      "ns-promo-urgent": Boolean(promo.urgent)
+    }),
+    hidden: !promo.active,
+    "data-campaign": promo.code
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-promo-inner ns-container"
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-promo-html",
+    dangerouslySetInnerHTML: {
+      __html: promo.html
+    }
+  }), promo.minOrder !== void 0 && promo.minOrder > 0 ? /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-promo-min"
+  }, "Min. order ", formatMoney(promo.minOrder, locale)) : null, promo.code ? /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-promo-code"
+  }, "Code ", /* @__PURE__ */ react_default.createElement("code", null, promo.code)) : null));
+}
+
+// src/components/layout/Breadcrumbs.jsx
+function Breadcrumbs(props) {
+  var nav = react_default.useContext(NavContext);
+  var crumbs = props.breadcrumbs;
+  if (!crumbs || crumbs.length === 0) {
+    return null;
+  }
+  return /* @__PURE__ */ react_default.createElement("nav", {
+    className: "ns-crumbs ns-container",
+    "aria-label": "Breadcrumb"
+  }, /* @__PURE__ */ react_default.createElement("ol", {
+    className: "ns-crumb-list"
+  }, crumbs.map(function(crumb, idx) {
+    var isLast = idx === crumbs.length - 1;
+    return /* @__PURE__ */ react_default.createElement("li", {
+      key: crumb.href + ":" + idx,
+      className: cx("ns-crumb-item", {
+        "is-current": isLast
+      })
+    }, isLast ? /* @__PURE__ */ react_default.createElement("span", {
+      "aria-current": "page"
+    }, crumb.label) : /* @__PURE__ */ react_default.createElement("a", {
+      href: nav.base + crumb.href
+    }, crumb.label));
+  })));
+}
+
+// src/components/ui/Icon.jsx
+var PATHS = {
+  search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5",
+  cart: "M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01",
+  user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0",
+  moon: "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z",
+  sun: "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4",
+  truck: "M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z",
+  shield: "M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3zM9 12l2 2 4-4",
+  doc: "M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5",
+  clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
+  check: "M5 12.5l4.5 4.5L19 7.5",
+  arrow: "M5 12h14M13 6l6 6-6 6",
+  close: "M6 6l12 12M18 6L6 18"
+};
+function Icon(props) {
+  var size = props.size || 20;
+  return /* @__PURE__ */ react_default.createElement("svg", {
+    className: "ns-icon ns-icon-" + props.name,
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.75",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": "true",
+    focusable: "false"
+  }, /* @__PURE__ */ react_default.createElement("path", {
+    d: PATHS[props.name]
+  }));
+}
+
+// src/components/layout/FlashMessage.jsx
+function FlashMessage(props) {
+  var nav = react_default.useContext(NavContext);
+  var flash = props.flash;
+  if (!flash) {
+    return null;
+  }
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-flash ns-container",
+    role: "status"
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-flash-inner"
+  }, /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "check",
+    size: 18
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-flash-text"
+  }, flash.text), flash.cartLink ? /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-flash-link",
+    href: nav.base + "/cart"
+  }, "View cart") : null));
+}
+
+// src/components/layout/SiteFooter.jsx
+function SiteFooter(props) {
+  var nav = react_default.useContext(NavContext);
+  var locale = react_default.useContext(LocaleContext);
+  return /* @__PURE__ */ react_default.createElement("footer", {
+    className: "ns-footer"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-footer-grid ns-container"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-footer-about"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/",
+    className: "ns-brand ns-brand-small"
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-brand-mark",
+    "aria-hidden": "true"
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-brand-name"
+  }, "Northstar Supply")), /* @__PURE__ */ react_default.createElement("p", null, "Professional tools and shop supplies for maintenance teams, machine shops and electricians.")), /* @__PURE__ */ react_default.createElement("nav", {
+    className: "ns-footer-col",
+    "aria-label": "Shop"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-footer-title"
+  }, "Shop"), /* @__PURE__ */ react_default.createElement("ul", null, props.categories.map(function(cat) {
+    return /* @__PURE__ */ react_default.createElement("li", {
+      key: cat.id
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      href: nav.base + "/c/" + cat.slug
+    }, cat.label));
+  }))), /* @__PURE__ */ react_default.createElement("nav", {
+    className: "ns-footer-col",
+    "aria-label": "Account"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-footer-title"
+  }, "Account"), /* @__PURE__ */ react_default.createElement("ul", null, /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/signin"
+  }, "Sign in")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/cart"
+  }, "Cart")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/shop"
+  }, "All products")))), /* @__PURE__ */ react_default.createElement("nav", {
+    className: "ns-footer-col",
+    "aria-label": "About this demo"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-footer-title"
+  }, "About this demo"), /* @__PURE__ */ react_default.createElement("ul", null, /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.assets + "/compare"
+  }, "Compare renderers")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.assets + "/"
+  }, "How it works")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement("a", {
+    href: "https://github.com/jlongster/northstar-supply"
+  }, "Source on GitHub"))))), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-footer-meta ns-container"
+  }, /* @__PURE__ */ react_default.createElement("span", null, "© Northstar Supply Co. Demo store: no orders are placed."), /* @__PURE__ */ react_default.createElement("span", null, "Prices in ", locale.currency, " (", locale.code, ")")));
+}
+
+// src/lib/text.js
+function computeInitials(name) {
+  if (!name) return "?";
+  var trimmed = name.trim();
+  if (!trimmed) return "?";
+  var parts = trimmed.split(/\s+/);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (parts[0].slice(0, 1) + parts[parts.length - 1].slice(0, 1)).toUpperCase();
+}
+
+// src/components/ui/AvatarBadge.jsx
+function AvatarBadge(props) {
+  var bg = props.color || "#3f3f46";
+  return /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-avatar",
+    "aria-hidden": "true",
+    style: {
+      backgroundColor: bg,
+      color: "#ffffff"
+    }
+  }, computeInitials(props.name));
+}
+
+// src/components/account/LoyaltyBadge.jsx
+function LoyaltyBadge(props) {
+  var locale = react_default.useContext(LocaleContext);
+  var tier = props.tier || "member";
+  return /* @__PURE__ */ react_default.createElement("span", {
+    className: cx("ns-tier", "ns-tier-" + tier),
+    "data-tier": tier,
+    "data-points": props.points,
+    title: formatInt(props.points, locale.groupSep) + " points"
+  }, tier.toUpperCase());
+}
+
+// src/components/account/UserMenu.jsx
+function UserMenu() {
+  var nav = react_default.useContext(NavContext);
+  var user = react_default.useContext(UserContext);
+  if (!user) {
+    return /* @__PURE__ */ react_default.createElement("div", {
+      className: "ns-user ns-user-anon",
+      "data-authenticated": false
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      href: nav.base + "/signin",
+      className: "ns-header-link"
+    }, /* @__PURE__ */ react_default.createElement(Icon, {
+      name: "user"
+    }), /* @__PURE__ */ react_default.createElement("span", {
+      className: "ns-header-link-label"
+    }, "Sign in")));
+  }
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-user ns-user-auth",
+    "data-authenticated": true,
+    "data-user-id": user.id
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/signin",
+    className: "ns-header-link",
+    title: "Account: " + user.name
+  }, /* @__PURE__ */ react_default.createElement(AvatarBadge, {
+    name: user.name,
+    color: user.avatarColor
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-header-link-label ns-greeting"
+  }, user.name), /* @__PURE__ */ react_default.createElement(LoyaltyBadge, {
+    tier: user.tier,
+    points: user.points
+  })));
+}
+
+// src/components/account/ThemeToggle.jsx
+function ThemeToggle() {
+  var nav = react_default.useContext(NavContext);
+  var theme = react_default.useContext(ThemeContext);
+  var next = theme === "dark" ? "light" : "dark";
+  return /* @__PURE__ */ react_default.createElement("form", {
+    className: "ns-theme-toggle",
+    method: "post",
+    action: nav.base + "/theme"
+  }, /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "theme",
+    value: next
+  }), /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "back",
+    value: nav.current
+  }), /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    className: "ns-icon-btn",
+    "aria-label": "Switch to " + next + " theme",
+    title: "Switch to " + next + " theme"
+  }, theme === "dark" ? /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "sun"
+  }) : /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "moon"
+  })));
+}
+
+// src/components/cart/CartLink.jsx
+function CartLink(props) {
+  var nav = react_default.useContext(NavContext);
+  var count = props.count;
+  return /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/cart",
+    className: cx("ns-header-link", "ns-cart-link", {
+      "is-current": nav.view === "cart"
+    }),
+    "aria-label": "Cart, " + count + (count === 1 ? " item" : " items")
+  }, /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "cart"
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-header-link-label"
+  }, "Cart"), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-cart-count",
+    hidden: count === 0
+  }, count));
+}
+
+// src/components/search/SearchBox.jsx
+function SearchBox(props) {
+  var nav = react_default.useContext(NavContext);
+  var search = props.search;
+  var inputId = react_default.useId();
+  var hasQuery = Boolean(search.query && search.query.length > 0);
+  return /* @__PURE__ */ react_default.createElement("form", {
+    className: "ns-search",
+    role: "search",
+    action: nav.base + "/search",
+    method: "get"
+  }, /* @__PURE__ */ react_default.createElement("label", {
+    className: "ns-sr-only",
+    htmlFor: inputId
+  }, "Search products"), /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "search",
+    size: 18
+  }), /* @__PURE__ */ react_default.createElement("input", {
+    type: "search",
+    id: inputId,
+    name: "q",
+    defaultValue: search.query,
+    placeholder: "Search tools, brands or SKUs",
+    disabled: Boolean(search.disabled),
+    readOnly: Boolean(search.readOnly),
+    required: Boolean(search.required),
+    autoComplete: "off",
+    "data-has-query": hasQuery
+  }), /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    className: "ns-search-submit",
+    disabled: Boolean(search.disabled),
+    "data-action": "catalog-search"
+  }, "Search"));
+}
+
+// src/components/layout/PrimaryNav.jsx
+function NavItem(props) {
+  var nav = react_default.useContext(NavContext);
+  var cat = props.category;
+  var active = props.active;
+  return /* @__PURE__ */ react_default.createElement("li", {
+    className: cx("ns-nav-item", {
+      "is-active": active,
+      "is-hot": Boolean(cat.hot)
+    })
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/c/" + cat.slug,
+    "aria-current": active ? "page" : void 0,
+    "data-category": cat.slug
+  }, cat.label));
+}
+function PrimaryNav(props) {
+  var nav = react_default.useContext(NavContext);
+  var categories = props.categories;
+  if (!categories || categories.length === 0) {
+    return null;
+  }
+  var allActive = nav.view === "listing" && nav.path === "/shop";
+  return /* @__PURE__ */ react_default.createElement("nav", {
+    className: "ns-nav",
+    "aria-label": "Categories"
+  }, /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-nav-list ns-container"
+  }, /* @__PURE__ */ react_default.createElement("li", {
+    className: cx("ns-nav-item", {
+      "is-active": allActive
+    })
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/shop",
+    "aria-current": allActive ? "page" : void 0
+  }, "All products")), categories.map(function(cat) {
+    return /* @__PURE__ */ react_default.createElement(NavItem, {
+      key: cat.id,
+      category: cat,
+      active: cat.slug === props.activeSlug
+    });
+  })));
+}
+
+// src/components/layout/SiteHeader.jsx
+function SiteHeader(props) {
+  var nav = react_default.useContext(NavContext);
+  return /* @__PURE__ */ react_default.createElement("header", {
+    className: "ns-header"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-header-top ns-container"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/",
+    className: "ns-brand",
+    "data-brand": "northstar"
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-brand-mark",
+    "aria-hidden": "true"
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-brand-name"
+  }, "Northstar Supply")), /* @__PURE__ */ react_default.createElement(SearchBox, {
+    search: props.search
+  }), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-header-actions"
+  }, /* @__PURE__ */ react_default.createElement(ThemeToggle, null), /* @__PURE__ */ react_default.createElement(UserMenu, null), /* @__PURE__ */ react_default.createElement(CartLink, {
+    count: props.cartCount
+  }))), /* @__PURE__ */ react_default.createElement(PrimaryNav, {
+    categories: props.categories,
+    activeSlug: props.search.categorySlug
+  }));
+}
+
+// src/lib/cart.js
+function computeCartTotals(cart, user) {
+  var subtotal = 0;
+  var unitCount = 0;
+  for (var i = 0; i < cart.items.length; i++) {
+    var it = cart.items[i];
+    subtotal += it.qty * it.unitPrice;
+    unitCount += it.qty;
+  }
+  var discountRate = user && user.tier === "vip" ? 0.1 : user && user.tier === "pro" ? 0.05 : 0;
+  var memberDiscount = subtotal > 0 ? -(subtotal * discountRate) : 0;
+  var credit = unitCount > 0 ? cart.creditAdjustment : 0;
+  var afterDiscount = subtotal + memberDiscount + credit;
+  var taxable = afterDiscount > 0 ? afterDiscount : 0;
+  var freeShipping = taxable >= cart.freeShippingThreshold;
+  var shipping = unitCount === 0 || freeShipping ? 0 : 14.95;
+  var tax = taxable * cart.taxRate;
+  var remaining = freeShipping ? 0 : cart.freeShippingThreshold - taxable;
+  var progress = cart.freeShippingThreshold > 0 ? Math.min(100, Math.round(taxable / cart.freeShippingThreshold * 100)) : 100;
+  return {
+    subtotal: subtotal,
+    unitCount: unitCount,
+    memberDiscount: memberDiscount,
+    credit: credit,
+    shipping: shipping,
+    tax: tax,
+    grandTotal: taxable + shipping + tax,
+    freeShippingRemaining: remaining,
+    freeShippingProgress: progress
+  };
+}
+
+// src/lib/catalog.js
+function computeCatalogStats(products) {
+  var inStockCount = 0;
+  var onSaleCount = 0;
+  for (var i = 0; i < products.length; i++) {
+    var p = products[i];
+    if (p.stock > 0) inStockCount++;
+    if (typeof p.originalPrice === "number" && p.originalPrice > p.price) {
+      onSaleCount++;
     }
   }
-  return classes;
+  return {
+    visibleCount: products.length,
+    inStockCount: inStockCount,
+    onSaleCount: onSaleCount
+  };
+}
+
+// src/components/product/ProductArt.jsx
+function ProductArt(props) {
+  var nav = react_default.useContext(NavContext);
+  var size = props.size || "card";
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: cx("ns-art", "ns-art-" + size, "ns-art-cat-" + props.category)
+  }, /* @__PURE__ */ react_default.createElement("img", {
+    src: nav.assets + "/art/" + props.category + ".svg",
+    alt: "",
+    width: size === "large" ? 560 : size === "thumb" ? 72 : 320,
+    height: size === "large" ? 420 : size === "thumb" ? 54 : 240,
+    loading: props.eager ? void 0 : "lazy",
+    decoding: "async"
+  }));
+}
+
+// src/components/cart/CartLineItem.jsx
+function CartLineItem(props) {
+  var item = props.item;
+  var nav = react_default.useContext(NavContext);
+  var locale = react_default.useContext(LocaleContext);
+  var qtyId = react_default.useId();
+  var lineTotal = item.qty * item.unitPrice;
+  return /* @__PURE__ */ react_default.createElement("li", {
+    className: "ns-cart-item",
+    "data-sku": item.sku
+  }, /* @__PURE__ */ react_default.createElement(ProductArt, {
+    category: item.category || "hand-tools",
+    size: "thumb"
+  }), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-cart-item-main"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-cart-item-title",
+    href: nav.base + "/p/" + item.sku
+  }, item.title), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-cart-item-meta"
+  }, "SKU ", item.sku, " · ", formatMoney(item.unitPrice, locale), " each"), item.backordered ? /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-cart-backorder"
+  }, "Backordered: ships when restocked") : null), /* @__PURE__ */ react_default.createElement("form", {
+    className: "ns-cart-item-qty",
+    method: "post",
+    action: nav.base + "/cart/update"
+  }, /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "sku",
+    value: item.sku
+  }), /* @__PURE__ */ react_default.createElement("label", {
+    className: "ns-sr-only",
+    htmlFor: qtyId
+  }, "Quantity"), /* @__PURE__ */ react_default.createElement("input", {
+    id: qtyId,
+    type: "number",
+    name: "qty",
+    min: 1,
+    max: 99,
+    defaultValue: item.qty,
+    inputMode: "numeric"
+  }), /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    className: "ns-btn ns-btn-secondary ns-btn-sm"
+  }, "Update"), /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    name: "remove",
+    value: "1",
+    className: "ns-btn ns-btn-ghost ns-btn-sm"
+  }, "Remove")), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-cart-item-total"
+  }, formatMoney(lineTotal, locale)));
 }
 
 // src/components/ui/ActionButton.jsx
@@ -147,264 +629,119 @@ function ActionButton(props) {
   return /* @__PURE__ */ react_default.createElement("button", btnProps, props.children);
 }
 
-// src/components/cart/CartLineItem.jsx
-function CartLineItem(props) {
-  var item = props.item;
-  var locale = react_default.useContext(LocaleContext);
-  var lineTotal = item.qty * item.unitPrice;
-  return /* @__PURE__ */ react_default.createElement("li", {
-    className: "ns-cart-item",
-    "data-sku": item.sku
-  }, /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-cart-item-main"
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-cart-item-title"
-  }, item.title), item.backordered ? /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-cart-backorder"
-  }, "Backorder") : null), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-cart-item-math"
-  }, item.qty, " × ", formatMoney(item.unitPrice, locale), " =", " ", /* @__PURE__ */ react_default.createElement("strong", null, formatMoney(lineTotal, locale))));
-}
-
 // src/components/cart/CartSummaryAside.jsx
 function CartSummaryAside(props) {
   var cart = props.cart;
+  var totals = props.totals;
   var locale = react_default.useContext(LocaleContext);
-  var user = react_default.useContext(UserContext);
-  var totals = react_default.useMemo(function() {
-    return computeCartTotals(cart, user);
-  }, [cart, user]);
   var isEmpty = cart.items.length === 0;
-  var showBreakdown = !isEmpty || cart.creditAdjustment !== 0;
   return /* @__PURE__ */ react_default.createElement("aside", {
-    className: "ns-cart",
-    "data-empty": isEmpty
+    className: "ns-summary",
+    "data-empty": isEmpty,
+    "aria-labelledby": "ns-summary-title"
   }, /* @__PURE__ */ react_default.createElement("h2", {
-    className: "ns-cart-title"
-  }, "Order Quote (", totals.unitCount, ")"), isEmpty ? /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-cart-empty"
-  }, "Your quote list is empty.") : /* @__PURE__ */ react_default.createElement("ul", {
-    className: "ns-cart-list"
+    className: "ns-summary-title",
+    id: "ns-summary-title"
+  }, "Order summary"), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-ship-meter"
+  }, /* @__PURE__ */ react_default.createElement("p", null, totals.freeShippingRemaining > 0 ? "Add " + formatMoney(totals.freeShippingRemaining, locale) + " more for free shipping" : "Your order ships free"), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-ship-track",
+    "aria-hidden": "true"
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-ship-fill",
+    style: {
+      width: totals.freeShippingProgress + "%"
+    }
+  }))), /* @__PURE__ */ react_default.createElement("dl", {
+    className: "ns-summary-rows"
+  }, /* @__PURE__ */ react_default.createElement("dt", null, "Subtotal (", totals.unitCount, " ", totals.unitCount === 1 ? "item" : "items", ")"), /* @__PURE__ */ react_default.createElement("dd", null, formatMoney(totals.subtotal, locale)), totals.memberDiscount !== 0 ? /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("dt", null, "Member discount"), /* @__PURE__ */ react_default.createElement("dd", {
+    className: "ns-summary-credit"
+  }, formatMoney(totals.memberDiscount, locale))) : null, totals.credit !== 0 ? /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("dt", null, "Account credit"), /* @__PURE__ */ react_default.createElement("dd", {
+    className: "ns-summary-credit"
+  }, formatMoney(totals.credit, locale))) : null, /* @__PURE__ */ react_default.createElement("dt", null, "Shipping"), /* @__PURE__ */ react_default.createElement("dd", null, totals.shipping === 0 ? "Free" : formatMoney(totals.shipping, locale)), /* @__PURE__ */ react_default.createElement("dt", null, "Estimated tax"), /* @__PURE__ */ react_default.createElement("dd", null, formatMoney(totals.tax, locale)), /* @__PURE__ */ react_default.createElement("dt", {
+    className: "ns-summary-total-label"
+  }, "Total"), /* @__PURE__ */ react_default.createElement("dd", {
+    className: "ns-summary-total"
+  }, formatMoney(totals.grandTotal, locale))), /* @__PURE__ */ react_default.createElement(ActionButton, {
+    variant: "primary",
+    size: "lg",
+    disabled: true,
+    className: "ns-btn-block"
+  }, "Checkout"), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-summary-note"
+  }, "Checkout is disabled in this demo store."), /* @__PURE__ */ react_default.createElement("details", {
+    className: "ns-summary-terms",
+    open: Boolean(cart.notesOpen)
+  }, /* @__PURE__ */ react_default.createElement("summary", null, "Shipping & trade terms"), /* @__PURE__ */ react_default.createElement("p", null, "Orders over ", formatMoney(cart.freeShippingThreshold, locale), " ship free. Trade accounts can pay on Net-30 terms.")));
+}
+
+// src/pages/CartPage.jsx
+function CartPage(props) {
+  var nav = react_default.useContext(NavContext);
+  var cart = props.cart;
+  var isEmpty = cart.items.length === 0;
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-cart-page ns-container"
+  }, /* @__PURE__ */ react_default.createElement("header", {
+    className: "ns-page-head"
+  }, /* @__PURE__ */ react_default.createElement("h1", {
+    className: "ns-page-title"
+  }, "Your cart")), isEmpty ? /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty",
+    role: "status"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty-art",
+    "aria-hidden": "true"
+  }), /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-empty-title"
+  }, "Your cart is empty"), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-empty-desc"
+  }, "Add tools from the catalog and they will show up here."), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty-actions"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-primary",
+    href: nav.base + "/shop"
+  }, "Browse products"))) : /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-cart-layout"
+  }, /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-cart-list",
+    "aria-label": "Items in your cart"
   }, cart.items.map(function(it) {
     return /* @__PURE__ */ react_default.createElement(CartLineItem, {
       key: it.sku,
       item: it
     });
-  })), showBreakdown ? /* @__PURE__ */ react_default.createElement("dl", {
-    className: "ns-cart-totals"
-  }, /* @__PURE__ */ react_default.createElement("dt", null, "Subtotal"), /* @__PURE__ */ react_default.createElement("dd", null, formatMoney(totals.subtotal, locale)), totals.memberDiscount !== 0 ? /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("dt", null, "Member Discount"), /* @__PURE__ */ react_default.createElement("dd", null, formatMoney(totals.memberDiscount, locale))) : null, cart.creditAdjustment !== 0 ? /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("dt", null, "Account Credit"), /* @__PURE__ */ react_default.createElement("dd", null, formatMoney(cart.creditAdjustment, locale))) : null, /* @__PURE__ */ react_default.createElement("dt", null, "Shipping"), /* @__PURE__ */ react_default.createElement("dd", null, totals.shipping === 0 ? "FREE" : formatMoney(totals.shipping, locale)), /* @__PURE__ */ react_default.createElement("dt", null, "Est. Tax"), /* @__PURE__ */ react_default.createElement("dd", null, formatMoney(totals.tax, locale)), /* @__PURE__ */ react_default.createElement("dt", {
-    className: "ns-cart-grand-label"
-  }, "Total"), /* @__PURE__ */ react_default.createElement("dd", {
-    className: "ns-cart-grand-val"
-  }, formatMoney(totals.grandTotal, locale))) : null, /* @__PURE__ */ react_default.createElement("details", {
-    className: "ns-cart-notes",
-    open: Boolean(cart.notesOpen)
-  }, /* @__PURE__ */ react_default.createElement("summary", null, "Freight & Net-30 Terms"), /* @__PURE__ */ react_default.createElement("p", null, "Orders above ", formatMoney(cart.freeShippingThreshold, locale), " ship free.")), /* @__PURE__ */ react_default.createElement(ActionButton, {
-    variant: "primary",
-    disabled: isEmpty
-  }, "Proceed to Checkout"));
-}
-
-// src/components/catalog/CatalogToolbar.jsx
-function CatalogToolbar(props) {
-  var sortId = react_default.useId();
-  var locale = react_default.useContext(LocaleContext);
-  var stats = props.stats;
-  return /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-toolbar"
-  }, /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-toolbar-summary"
-  }, "Showing ", /* @__PURE__ */ react_default.createElement("strong", null, formatInt(stats.visibleCount, locale.groupSep)), " ", "of ", /* @__PURE__ */ react_default.createElement("strong", null, formatInt(props.totalMatching, locale.groupSep)), " ", "items (", stats.inStockCount, " ready, ", stats.onSaleCount, " on sale)"), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-toolbar-sort"
-  }, /* @__PURE__ */ react_default.createElement("label", {
-    htmlFor: sortId
-  }, "Sort:"), /* @__PURE__ */ react_default.createElement("select", {
-    id: sortId,
-    name: "sort",
-    defaultValue: props.sortBy
-  }, /* @__PURE__ */ react_default.createElement("option", {
-    value: "featured"
-  }, "Featured"), /* @__PURE__ */ react_default.createElement("option", {
-    value: "price-asc"
-  }, "Price: Low to High"), /* @__PURE__ */ react_default.createElement("option", {
-    value: "price-desc"
-  }, "Price: High to Low"), /* @__PURE__ */ react_default.createElement("option", {
-    value: "rating"
-  }, "Customer Rating"))));
-}
-
-// src/components/catalog/PaginationBar.jsx
-function PaginationBar(props) {
-  var pag = props.pagination;
-  if (!pag || pag.totalPages <= 1) {
-    return null;
-  }
-  var pages = [];
-  var start = Math.max(1, pag.currentPage - 2);
-  var end = Math.min(pag.totalPages, start + 4);
-  for (var p = start; p <= end; p++) {
-    pages.push(p);
-  }
-  return /* @__PURE__ */ react_default.createElement("nav", {
-    className: "ns-pagination",
-    "aria-label": "Pagination"
-  }, pages.map(function(pageNum) {
-    var active = pageNum === pag.currentPage;
-    return /* @__PURE__ */ react_default.createElement("a", {
-      key: "page-" + pageNum,
-      href: "?page=" + pageNum,
-      className: cx("ns-page-link", {
-        "is-active": active
-      }),
-      "aria-current": active ? "page" : void 0
-    }, pageNum);
-  }));
-}
-
-// src/components/ui/CountPill.jsx
-function CountPill(props) {
-  var locale = react_default.useContext(LocaleContext);
-  var count = props.count;
-  return /* @__PURE__ */ react_default.createElement("span", {
-    className: cx("ns-pill", {
-      "ns-pill-hot": Boolean(props.hot)
-    }),
-    hidden: count <= 0,
-    "data-zero": count === 0
-  }, formatInt(count, locale.groupSep));
-}
-
-// src/components/filters/FilterOption.jsx
-function FilterOption(props) {
-  var opt = props.option;
-  var optId = react_default.useId();
-  var disabled = Boolean(props.groupDisabled || opt.count === 0);
-  return /* @__PURE__ */ react_default.createElement("li", {
-    className: cx("ns-filter-opt", {
-      "is-selected": opt.selected
-    })
-  }, /* @__PURE__ */ react_default.createElement("input", {
-    type: "checkbox",
-    id: optId,
-    name: "f_" + props.groupId,
-    value: opt.value,
-    defaultChecked: Boolean(opt.selected),
-    disabled: disabled
-  }), /* @__PURE__ */ react_default.createElement("label", {
-    htmlFor: optId
-  }, opt.label), /* @__PURE__ */ react_default.createElement(CountPill, {
-    count: opt.count,
-    hot: false
-  }));
-}
-
-// src/components/filters/FilterGroup.jsx
-function FilterGroup(props) {
-  var group = props.group;
-  return /* @__PURE__ */ react_default.createElement("fieldset", {
-    className: "ns-filter-group",
-    disabled: Boolean(group.disabled),
-    "data-filter-key": group.id
-  }, /* @__PURE__ */ react_default.createElement("legend", {
-    className: "ns-filter-legend"
-  }, group.title), group.options.length === 0 ? /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-filter-empty"
-  }, "No options") : /* @__PURE__ */ react_default.createElement("ul", {
-    className: "ns-filter-list"
-  }, group.options.map(function(opt) {
-    return /* @__PURE__ */ react_default.createElement(FilterOption, {
-      key: opt.value,
-      groupId: group.id,
-      groupDisabled: group.disabled,
-      option: opt
-    });
+  })), /* @__PURE__ */ react_default.createElement(CartSummaryAside, {
+    cart: cart,
+    totals: props.totals
   })));
 }
 
-// src/components/filters/FilterSidebar.jsx
-function FilterSidebar(props) {
-  var headingId = react_default.useId();
-  var stockToggleId = react_default.useId();
-  var filters = props.filters;
-  return /* @__PURE__ */ react_default.createElement("aside", {
-    className: "ns-sidebar",
-    "aria-labelledby": headingId
-  }, /* @__PURE__ */ react_default.createElement("h2", {
-    id: headingId,
-    className: "ns-sidebar-title"
-  }, "Filters"), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-stock-toggle"
-  }, /* @__PURE__ */ react_default.createElement("input", {
-    type: "checkbox",
-    id: stockToggleId,
-    name: "in_stock",
-    defaultChecked: Boolean(props.inStockOnly)
-  }), /* @__PURE__ */ react_default.createElement("label", {
-    htmlFor: stockToggleId
-  }, "In-stock items only")), filters.map(function(group) {
-    return /* @__PURE__ */ react_default.createElement(FilterGroup, {
-      key: group.id,
-      group: group
-    });
-  }));
-}
-
-// src/components/layout/AnnouncementBanner.jsx
-function AnnouncementBanner(props) {
+// src/components/home/CategoryTiles.jsx
+function CategoryTiles(props) {
+  var nav = react_default.useContext(NavContext);
   var locale = react_default.useContext(LocaleContext);
-  var promo = props.promo;
-  if (!promo) {
-    return null;
-  }
-  return /* @__PURE__ */ react_default.createElement("section", {
-    className: cx("ns-promo", {
-      "ns-promo-urgent": Boolean(promo.urgent)
-    }),
-    hidden: !promo.active,
-    "data-campaign": promo.code
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-promo-html",
-    dangerouslySetInnerHTML: {
-      __html: promo.html
-    }
-  }), promo.minOrder !== void 0 && promo.minOrder > 0 ? /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-promo-min"
-  }, " ", "(Min. order ", formatMoney(promo.minOrder, locale), ")") : null, /* @__PURE__ */ react_default.createElement("code", {
-    className: "ns-promo-code"
-  }, promo.code));
-}
-
-// src/components/layout/Breadcrumbs.jsx
-function Breadcrumbs(props) {
-  var crumbs = props.breadcrumbs;
-  if (!crumbs || crumbs.length === 0) {
-    return null;
-  }
-  return /* @__PURE__ */ react_default.createElement("nav", {
-    className: "ns-crumbs",
-    "aria-label": "Breadcrumb"
-  }, /* @__PURE__ */ react_default.createElement("ol", {
-    className: "ns-crumb-list"
-  }, crumbs.map(function(crumb, idx) {
-    var isLast = idx === crumbs.length - 1;
-    return /* @__PURE__ */ react_default.createElement(react_default.Fragment, {
-      key: crumb.href + ":" + idx
-    }, idx > 0 ? /* @__PURE__ */ react_default.createElement("li", {
-      className: "ns-crumb-sep",
-      "aria-hidden": "true"
-    }, "/") : null, /* @__PURE__ */ react_default.createElement("li", {
-      className: cx("ns-crumb-item", {
-        "is-current": isLast
-      })
-    }, isLast ? /* @__PURE__ */ react_default.createElement("span", {
-      "aria-current": "page"
-    }, crumb.label) : /* @__PURE__ */ react_default.createElement("a", {
-      href: crumb.href
-    }, crumb.label)));
-  })));
+  return /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-tiles"
+  }, props.categories.map(function(cat) {
+    return /* @__PURE__ */ react_default.createElement("li", {
+      key: cat.id,
+      className: "ns-tile"
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      href: nav.base + "/c/" + cat.slug
+    }, /* @__PURE__ */ react_default.createElement(ProductArt, {
+      category: cat.slug,
+      size: "tile"
+    }), /* @__PURE__ */ react_default.createElement("span", {
+      className: "ns-tile-label"
+    }, cat.label), /* @__PURE__ */ react_default.createElement("span", {
+      className: "ns-tile-count"
+    }, formatInt(cat.count, locale.groupSep), " products")));
+  }));
 }
 
 // src/lib/dates.js
+var DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 var MONTH_NAMES = [
   "Jan",
   "Feb",
@@ -452,184 +789,55 @@ function formatDateUTC(epochSec, includeTime) {
   var mm = Math.floor((remSec - hh * 3600) / 60);
   return base + " " + pad2(hh) + ":" + pad2(mm) + " UTC";
 }
-
-// src/components/layout/SiteFooter.jsx
-function SiteFooter(props) {
-  var theme = react_default.useContext(ThemeContext);
-  var locale = react_default.useContext(LocaleContext);
-  return /* @__PURE__ */ react_default.createElement("footer", {
-    className: "ns-footer"
-  }, /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-footer-copy"
-  }, "© Northstar Industrial Supply · Generated", " ", /* @__PURE__ */ react_default.createElement("time", null, formatDateUTC(props.timestampSec, true))), /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-footer-meta"
-  }, /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("span", null, "Locale: ", locale.code), " · ", /* @__PURE__ */ react_default.createElement("span", null, "Currency: ", locale.currency), " · ", /* @__PURE__ */ react_default.createElement("span", null, "Theme: ", theme))));
+function formatShortDate(epochSec) {
+  var days = Math.floor(Math.floor(epochSec) / 86400);
+  var weekday = ((days + 4) % 7 + 7) % 7;
+  var full = formatDateUTC(epochSec, false);
+  var day = full.slice(4, 6);
+  return DAY_NAMES[weekday] + ", " + full.slice(0, 3) + " " + (day.charAt(0) === "0" ? day.slice(1) : day);
 }
 
-// src/lib/text.js
-function computeInitials(name) {
-  if (!name) return "?";
-  var trimmed = name.trim();
-  if (!trimmed) return "?";
-  var parts = trimmed.split(/\s+/);
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-  return (parts[0].slice(0, 1) + parts[parts.length - 1].slice(0, 1)).toUpperCase();
-}
-
-// src/components/ui/AvatarBadge.jsx
-function AvatarBadge(props) {
-  var bg = props.color || "#0369a1";
-  return /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-avatar",
-    "aria-hidden": "true",
-    style: {
-      backgroundColor: bg,
-      color: "#ffffff",
-      width: 28,
-      height: 28,
-      lineHeight: "28px",
-      fontWeight: 700
-    }
-  }, computeInitials(props.name));
-}
-
-// src/components/account/LoyaltyBadge.jsx
-function LoyaltyBadge(props) {
-  var locale = react_default.useContext(LocaleContext);
-  var tier = props.tier || "member";
-  return /* @__PURE__ */ react_default.createElement("span", {
-    className: cx("ns-tier", "ns-tier-" + tier),
-    "data-tier": tier,
-    "data-points": props.points
-  }, tier.toUpperCase(), " (", formatInt(props.points, locale.groupSep), " pts)");
-}
-
-// src/components/account/UserMenu.jsx
-function UserMenu() {
-  var user = react_default.useContext(UserContext);
-  if (!user) {
-    return /* @__PURE__ */ react_default.createElement("div", {
-      className: "ns-user ns-user-anon",
-      "data-authenticated": false
-    }, /* @__PURE__ */ react_default.createElement("a", {
-      href: "/signin",
-      className: "ns-link"
-    }, "Sign in"), /* @__PURE__ */ react_default.createElement("a", {
-      href: "/register",
-      className: "ns-link ns-link-cta"
-    }, "Trade Account"));
-  }
-  return /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-user ns-user-auth",
-    "data-authenticated": true,
-    "data-user-id": user.id
-  }, /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement(AvatarBadge, {
-    name: user.name,
-    color: user.avatarColor
-  }), /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-greeting"
-  }, "Hi, ", user.name), /* @__PURE__ */ react_default.createElement(LoyaltyBadge, {
-    tier: user.tier,
-    points: user.points
-  }), user.savedCount > 0 ? /* @__PURE__ */ react_default.createElement("a", {
-    href: "/saved",
-    className: "ns-saved-link"
-  }, "Saved (", user.savedCount, ")") : null));
-}
-
-// src/components/search/SearchBox.jsx
-function SearchBox(props) {
-  var search = props.search;
-  var inputId = react_default.useId();
-  var hasQuery = Boolean(search.query && search.query.length > 0);
-  var submitExtra = {
-    "data-action": "catalog-search",
-    "aria-label": "Run catalog search"
+// src/components/product/AddToCartForm.jsx
+function AddToCartForm(props) {
+  var nav = react_default.useContext(NavContext);
+  var inStock = props.stock > 0;
+  var qtyId = react_default.useId();
+  var btnExtra = {
+    "data-add-sku": props.sku,
+    "aria-label": (inStock ? "Add to cart: " : "Out of stock: ") + props.title
   };
   return /* @__PURE__ */ react_default.createElement("form", {
-    className: "ns-search",
-    role: "search",
-    action: "/catalog",
-    method: "get"
+    className: props.withQty ? "ns-add ns-add-full" : "ns-add",
+    method: "post",
+    action: nav.base + "/cart/add"
+  }, /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "sku",
+    value: props.sku
+  }), /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "back",
+    value: nav.current
+  }), props.withQty ? /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-qty"
   }, /* @__PURE__ */ react_default.createElement("label", {
-    className: "ns-sr-only",
-    htmlFor: inputId
-  }, "Search hardware"), /* @__PURE__ */ react_default.createElement("input", {
-    type: "search",
-    id: inputId,
-    name: "q",
-    defaultValue: search.query,
-    placeholder: "Search SKU, tool, or spec...",
-    disabled: Boolean(search.disabled),
-    readOnly: Boolean(search.readOnly),
-    required: Boolean(search.required),
-    autoComplete: "off",
-    "data-has-query": hasQuery
-  }), /* @__PURE__ */ react_default.createElement(ActionButton, {
+    htmlFor: qtyId
+  }, "Qty"), /* @__PURE__ */ react_default.createElement("input", {
+    id: qtyId,
+    type: "number",
+    name: "qty",
+    min: 1,
+    max: 99,
+    defaultValue: 1,
+    disabled: !inStock,
+    inputMode: "numeric"
+  })) : null, /* @__PURE__ */ react_default.createElement(ActionButton, {
     type: "submit",
-    variant: "secondary",
-    size: "sm",
-    disabled: Boolean(search.disabled),
-    extraAttrs: submitExtra
-  }, "Search"));
-}
-
-// src/components/layout/PrimaryNav.jsx
-function NavItem(props) {
-  var cat = props.category;
-  var active = props.active;
-  return /* @__PURE__ */ react_default.createElement("li", {
-    className: cx("ns-nav-item", {
-      "is-active": active
-    })
-  }, /* @__PURE__ */ react_default.createElement("a", {
-    href: "/c/" + cat.slug,
-    "aria-current": active ? "page" : void 0,
-    "data-category": cat.slug
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-nav-label"
-  }, cat.label), /* @__PURE__ */ react_default.createElement(CountPill, {
-    count: cat.count,
-    hot: cat.hot
-  })));
-}
-function PrimaryNav(props) {
-  var categories = props.categories;
-  if (!categories || categories.length === 0) {
-    return null;
-  }
-  return /* @__PURE__ */ react_default.createElement("nav", {
-    className: "ns-nav",
-    "aria-label": "Categories"
-  }, /* @__PURE__ */ react_default.createElement("ul", {
-    className: "ns-nav-list"
-  }, categories.map(function(cat) {
-    return /* @__PURE__ */ react_default.createElement(NavItem, {
-      key: cat.id,
-      category: cat,
-      active: cat.slug === props.activeSlug
-    });
-  })));
-}
-
-// src/components/layout/SiteHeader.jsx
-function SiteHeader(props) {
-  return /* @__PURE__ */ react_default.createElement("header", {
-    className: "ns-header"
-  }, /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-header-top"
-  }, /* @__PURE__ */ react_default.createElement("a", {
-    href: "/",
-    className: "ns-brand",
-    "data-brand": "northstar"
-  }, "Northstar Supply"), /* @__PURE__ */ react_default.createElement(SearchBox, {
-    search: props.search
-  }), /* @__PURE__ */ react_default.createElement(UserMenu, null)), /* @__PURE__ */ react_default.createElement(PrimaryNav, {
-    categories: props.categories,
-    activeSlug: props.search.categorySlug
-  }));
+    variant: props.withQty ? "primary" : "secondary",
+    size: props.withQty ? "lg" : "sm",
+    disabled: !inStock,
+    extraAttrs: btnExtra
+  }, inStock ? "Add to cart" : "Out of stock"));
 }
 
 // src/components/product/PriceBlock.jsx
@@ -640,116 +848,101 @@ function PriceBlock(props) {
   var hasDiscount = typeof orig === "number" && orig > price && orig > 0;
   var pctOff = hasDiscount ? Math.round((orig - price) / orig * 100) : 0;
   return /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-price-block",
+    className: props.large ? "ns-price-block ns-price-large" : "ns-price-block",
     "data-on-sale": hasDiscount
   }, /* @__PURE__ */ react_default.createElement("span", {
     className: "ns-price-current"
-  }, formatMoney(price, locale)), hasDiscount ? /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("del", {
+  }, price === 0 ? "Free" : formatMoney(price, locale)), hasDiscount ? /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("del", {
     className: "ns-price-orig"
-  }, formatMoney(orig, locale)), /* @__PURE__ */ react_default.createElement("span", {
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-sr-only"
+  }, "Was "), formatMoney(orig, locale)), /* @__PURE__ */ react_default.createElement("span", {
     className: "ns-price-save"
-  }, "Save ", pctOff, "%")) : null, typeof props.rebateAmount === "number" && props.rebateAmount !== 0 ? /* @__PURE__ */ react_default.createElement("span", {
+  }, "−", pctOff, "%")) : null, typeof props.rebateAmount === "number" && props.rebateAmount !== 0 ? /* @__PURE__ */ react_default.createElement("span", {
     className: "ns-price-rebate"
-  }, "Rebate: ", formatMoney(props.rebateAmount, locale)) : null);
+  }, formatMoney(props.rebateAmount, locale), " mail-in rebate") : null);
 }
 
 // src/components/product/StockBadge.jsx
 function StockBadge(props) {
   var stock = props.stock;
   if (stock <= 0) {
-    return /* @__PURE__ */ react_default.createElement("span", {
+    return /* @__PURE__ */ react_default.createElement("p", {
       className: "ns-stock ns-stock-out",
       "data-stock-state": "out"
     }, "Out of stock");
   }
   if (stock <= 5) {
-    return /* @__PURE__ */ react_default.createElement("span", {
+    return /* @__PURE__ */ react_default.createElement("p", {
       className: "ns-stock ns-stock-low",
       "data-stock-state": "low"
-    }, "Only ", stock, " left");
+    }, "Only ", stock, " left", typeof props.shipsAtSec === "number" ? " · Ships " + formatShortDate(props.shipsAtSec) : "");
   }
-  return /* @__PURE__ */ react_default.createElement("span", {
+  return /* @__PURE__ */ react_default.createElement("p", {
     className: "ns-stock ns-stock-in",
     "data-stock-state": "in"
-  }, "In stock", typeof props.shipsAtSec === "number" ? " · Ships " + formatDateUTC(props.shipsAtSec, false) : "");
+  }, "In stock", typeof props.shipsAtSec === "number" ? " · Ships " + formatShortDate(props.shipsAtSec) : "");
 }
 
-// src/components/product/HeroSpotlight.jsx
+// src/components/home/HeroSpotlight.jsx
 function HeroSpotlight(props) {
+  var nav = react_default.useContext(NavContext);
   var spot = props.spotlight;
   if (!spot) {
     return null;
   }
-  var ctaExtra = {
-    "data-spotlight-sku": spot.sku
-  };
   return /* @__PURE__ */ react_default.createElement("section", {
     className: "ns-spotlight",
-    "data-sku": spot.sku
+    "data-sku": spot.sku,
+    "aria-labelledby": "ns-spotlight-title"
   }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-spotlight-media"
+  }, /* @__PURE__ */ react_default.createElement(ProductArt, {
+    category: spot.category || "measuring",
+    eager: true
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-badge ns-badge-sale"
+  }, "Deal of the week")), /* @__PURE__ */ react_default.createElement("div", {
     className: "ns-spotlight-body"
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-spotlight-kicker"
-  }, "Deal of the Day"), /* @__PURE__ */ react_default.createElement("h2", {
-    className: "ns-spotlight-title"
-  }, spot.headline), spot.blurb ? /* @__PURE__ */ react_default.createElement("p", {
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-spotlight-title",
+    id: "ns-spotlight-title"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/p/" + spot.sku
+  }, spot.headline)), spot.blurb ? /* @__PURE__ */ react_default.createElement("p", {
     className: "ns-spotlight-blurb"
-  }, spot.blurb) : null, /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-spotlight-ends"
-  }, "Ends ", formatDateUTC(spot.endsAtSec, true))), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-spotlight-aside"
-  }, /* @__PURE__ */ react_default.createElement(PriceBlock, {
+  }, spot.blurb) : null, /* @__PURE__ */ react_default.createElement(PriceBlock, {
     price: spot.price,
     originalPrice: spot.originalPrice
   }), /* @__PURE__ */ react_default.createElement(StockBadge, {
     stock: spot.stock
-  }), /* @__PURE__ */ react_default.createElement(ActionButton, {
-    variant: "primary",
-    disabled: spot.stock <= 0,
-    extraAttrs: ctaExtra
-  }, "View Deal")));
+  }), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-spotlight-ends"
+  }, "Offer ends ", formatShortDate(spot.endsAtSec)), /* @__PURE__ */ react_default.createElement(AddToCartForm, {
+    sku: spot.sku,
+    title: spot.headline,
+    stock: spot.stock
+  })));
 }
 
-// src/components/product/EmptyCatalogState.jsx
-function EmptyCatalogState(props) {
-  var resetExtra = {
-    "data-action": "reset-filters"
-  };
-  return /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-empty",
-    role: "status",
-    "data-query": props.query
-  }, /* @__PURE__ */ react_default.createElement("h3", {
-    className: "ns-empty-title"
-  }, "No matching products found"), /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-empty-desc"
-  }, props.query ? 'No hardware matched "' + props.query + '". Try clearing filters.' : "This category currently has 0 items available."), /* @__PURE__ */ react_default.createElement(ActionButton, {
-    variant: "secondary",
-    extraAttrs: resetExtra
-  }, "Reset Filters"));
-}
-
-// src/lib/theme.js
-function getThemePalette(theme) {
-  if (theme === "dark") {
-    return {
-      bg: "#0f172a",
-      fg: "#f8fafc",
-      accent: "#38bdf8"
-    };
-  }
-  if (theme === "contrast") {
-    return {
-      bg: "#000000",
-      fg: "#ffffff",
-      accent: "#facc15"
-    };
-  }
-  return {
-    bg: "#f8fafc",
-    fg: "#0f172a",
-    accent: "#0284c7"
-  };
+// src/components/home/ValueProps.jsx
+function ValueProps(props) {
+  var locale = react_default.useContext(LocaleContext);
+  return /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-values"
+  }, /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "truck",
+    size: 22
+  }), /* @__PURE__ */ react_default.createElement("strong", null, "Free shipping over ", formatMoney(props.freeShippingThreshold, locale)), /* @__PURE__ */ react_default.createElement("span", null, "Same-day dispatch on orders placed by 3 pm.")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "doc",
+    size: 22
+  }), /* @__PURE__ */ react_default.createElement("strong", null, "Net-30 trade accounts"), /* @__PURE__ */ react_default.createElement("span", null, "Invoice billing and tax-exempt purchasing.")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "shield",
+    size: 22
+  }), /* @__PURE__ */ react_default.createElement("strong", null, "2-year warranty"), /* @__PURE__ */ react_default.createElement("span", null, "Lifetime coverage on hand tools.")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "clock",
+    size: 22
+  }), /* @__PURE__ */ react_default.createElement("strong", null, "Calibration certificates"), /* @__PURE__ */ react_default.createElement("span", null, "Included with every measuring instrument.")));
 }
 
 // src/components/product/ProductBadges.jsx
@@ -761,13 +954,502 @@ function ProductBadges(props) {
   }
   return /* @__PURE__ */ react_default.createElement("div", {
     className: "ns-badges"
-  }, p.featured ? /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-badge ns-badge-featured"
-  }, "Featured") : null, onSale ? /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-badge ns-badge-sale"
-  }, "Sale") : null, p.clearance ? /* @__PURE__ */ react_default.createElement("span", {
+  }, p.clearance ? /* @__PURE__ */ react_default.createElement("span", {
     className: "ns-badge ns-badge-clearance"
-  }, "Clearance") : null);
+  }, "Clearance") : onSale ? /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-badge ns-badge-sale"
+  }, "Sale") : null, p.featured ? /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-badge ns-badge-featured"
+  }, "Best seller") : null);
+}
+
+// src/components/product/StarRating.jsx
+function StarRating(props) {
+  var rating = props.rating;
+  var count = props.reviewCount;
+  var clamped = rating < 0 ? 0 : rating > 5 ? 5 : rating;
+  var pct = Math.round(clamped / 5 * 100);
+  var locale = react_default.useContext(LocaleContext);
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-rating",
+    role: "img",
+    "aria-label": "Rated " + clamped.toFixed(1) + " out of 5, " + formatInt(count, locale.groupSep) + " reviews"
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-rating-track",
+    "aria-hidden": "true"
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-rating-fill",
+    style: {
+      width: pct + "%",
+      opacity: count > 0 ? 1 : 0.35
+    }
+  })), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-rating-num",
+    "aria-hidden": "true"
+  }, clamped.toFixed(1)), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-rating-count",
+    "aria-hidden": "true"
+  }, "(", formatInt(count, locale.groupSep), ")"));
+}
+
+// src/components/product/ProductCard.jsx
+function ProductCard(props) {
+  var nav = react_default.useContext(NavContext);
+  var p = props.product;
+  var inStock = p.stock > 0;
+  var cardDataAttrs = {
+    "data-sku": p.sku,
+    "data-category": p.category,
+    "data-in-stock": inStock,
+    "data-featured": Boolean(p.featured)
+  };
+  return /* @__PURE__ */ react_default.createElement("article", Object.assign({}, cardDataAttrs, {
+    className: cx("ns-card", {
+      "ns-card-featured": Boolean(p.featured),
+      "ns-card-out": !inStock
+    })
+  }), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-card-media"
+  }, /* @__PURE__ */ react_default.createElement(ProductArt, {
+    category: p.category,
+    eager: props.index < 4
+  }), /* @__PURE__ */ react_default.createElement(ProductBadges, {
+    product: p
+  })), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-card-body"
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-card-brand"
+  }, p.brand), /* @__PURE__ */ react_default.createElement("h3", {
+    className: "ns-card-title"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-card-link",
+    href: nav.base + "/p/" + p.sku
+  }, p.title)), /* @__PURE__ */ react_default.createElement(StarRating, {
+    rating: p.rating,
+    reviewCount: p.reviewCount
+  }), /* @__PURE__ */ react_default.createElement(PriceBlock, {
+    price: p.price,
+    originalPrice: p.originalPrice,
+    rebateAmount: p.rebateAmount
+  }), /* @__PURE__ */ react_default.createElement(StockBadge, {
+    stock: p.stock,
+    shipsAtSec: p.shipsAtSec
+  })), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-card-actions"
+  }, /* @__PURE__ */ react_default.createElement(AddToCartForm, {
+    sku: p.sku,
+    title: p.title,
+    stock: p.stock
+  })));
+}
+
+// src/components/product/ProductGrid.jsx
+function ProductGrid(props) {
+  var products = props.products;
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: props.compact ? "ns-grid ns-grid-4" : "ns-grid",
+    "data-count": products.length
+  }, products.map(function(product, index) {
+    return /* @__PURE__ */ react_default.createElement(ProductCard, {
+      key: product.sku,
+      product: product,
+      index: index
+    });
+  }));
+}
+
+// src/pages/HomePage.jsx
+function HomePage(props) {
+  var nav = react_default.useContext(NavContext);
+  var home = props.home;
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-home"
+  }, /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-hero ns-container"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-hero-copy"
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-eyebrow"
+  }, "Industrial supply for working shops"), /* @__PURE__ */ react_default.createElement("h1", {
+    className: "ns-hero-title"
+  }, "Professional tools, shipped next day."), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-hero-lede"
+  }, "Measuring instruments, hand and power tools, cutting tools and safety gear from brands that hold tolerance. Trade pricing for teams, no minimum order."), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-hero-actions"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-primary ns-btn-lg",
+    href: nav.base + "/shop"
+  }, "Shop all products"), /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-secondary ns-btn-lg",
+    href: nav.base + "/signin"
+  }, "Open a trade account"))), /* @__PURE__ */ react_default.createElement(HeroSpotlight, {
+    spotlight: home.spotlight
+  })), /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-section ns-container",
+    "aria-labelledby": "ns-cats-title"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-section-head"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-section-heading",
+    id: "ns-cats-title"
+  }, "Shop by category")), /* @__PURE__ */ react_default.createElement(CategoryTiles, {
+    categories: props.categories
+  })), /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-section ns-container",
+    "aria-labelledby": "ns-featured-title"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-section-head"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-section-heading",
+    id: "ns-featured-title"
+  }, "Best sellers"), /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-section-link",
+    href: nav.base + "/shop"
+  }, "View all products")), /* @__PURE__ */ react_default.createElement(ProductGrid, {
+    products: props.products,
+    compact: true
+  })), /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-section ns-container",
+    "aria-label": "Why Northstar"
+  }, /* @__PURE__ */ react_default.createElement(ValueProps, {
+    freeShippingThreshold: props.cart.freeShippingThreshold
+  })));
+}
+
+// src/components/catalog/CatalogToolbar.jsx
+function CatalogToolbar(props) {
+  var sortId = react_default.useId();
+  var nav = react_default.useContext(NavContext);
+  var locale = react_default.useContext(LocaleContext);
+  var pag = props.pagination;
+  var stats = props.stats;
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-toolbar"
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-toolbar-summary"
+  }, pag.totalMatching === 0 ? "0 products" : /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, "Showing", " ", /* @__PURE__ */ react_default.createElement("strong", null, formatInt(pag.firstIndex, locale.groupSep), "–", formatInt(pag.lastIndex, locale.groupSep)), " ", "of ", /* @__PURE__ */ react_default.createElement("strong", null, formatInt(pag.totalMatching, locale.groupSep)), stats.onSaleCount > 0 ? " · " + stats.onSaleCount + " on sale" : "")), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-toolbar-sort"
+  }, /* @__PURE__ */ react_default.createElement("label", {
+    htmlFor: sortId
+  }, "Sort by"), /* @__PURE__ */ react_default.createElement("select", {
+    id: sortId,
+    name: "sort",
+    form: "ns-filter-form",
+    defaultValue: props.sortBy
+  }, /* @__PURE__ */ react_default.createElement("option", {
+    value: "featured"
+  }, "Featured"), /* @__PURE__ */ react_default.createElement("option", {
+    value: "price-asc"
+  }, "Price: low to high"), /* @__PURE__ */ react_default.createElement("option", {
+    value: "price-desc"
+  }, "Price: high to low"), /* @__PURE__ */ react_default.createElement("option", {
+    value: "rating"
+  }, "Top rated")), /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    form: "ns-filter-form",
+    className: "ns-btn ns-btn-secondary ns-btn-sm ns-nojs"
+  }, "Sort")), props.activeFilters.length > 0 ? /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-chips",
+    "aria-label": "Active filters"
+  }, props.activeFilters.map(function(f) {
+    return /* @__PURE__ */ react_default.createElement("li", {
+      key: f.key
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      className: "ns-chip",
+      href: nav.base + f.href,
+      "aria-label": "Remove filter: " + f.label
+    }, f.label, /* @__PURE__ */ react_default.createElement(Icon, {
+      name: "close",
+      size: 14
+    })));
+  })) : null);
+}
+
+// src/components/catalog/PaginationBar.jsx
+function PaginationBar(props) {
+  var nav = react_default.useContext(NavContext);
+  var locale = react_default.useContext(LocaleContext);
+  var pag = props.pagination;
+  if (!pag || pag.totalPages <= 1) {
+    return null;
+  }
+  var prefix = nav.base + pag.hrefPrefix;
+  if (pag.showingAll) {
+    return /* @__PURE__ */ react_default.createElement("nav", {
+      className: "ns-pagination",
+      "aria-label": "Pagination"
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      className: "ns-page-link ns-page-wide",
+      href: prefix + "1"
+    }, "Show ", pag.pageSize, " per page"));
+  }
+  var pages = [];
+  var start = Math.max(1, Math.min(pag.currentPage - 2, pag.totalPages - 4));
+  var end = Math.min(pag.totalPages, start + 4);
+  for (var p = start; p <= end; p++) {
+    pages.push(p);
+  }
+  var hasPrev = pag.currentPage > 1;
+  var hasNext = pag.currentPage < pag.totalPages;
+  return /* @__PURE__ */ react_default.createElement("nav", {
+    className: "ns-pagination",
+    "aria-label": "Pagination"
+  }, hasPrev ? /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-page-link ns-page-wide",
+    href: prefix + (pag.currentPage - 1),
+    rel: "prev"
+  }, "Previous") : /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-page-link ns-page-wide is-disabled"
+  }, "Previous"), pages.map(function(pageNum) {
+    var active = pageNum === pag.currentPage;
+    return /* @__PURE__ */ react_default.createElement("a", {
+      key: "page-" + pageNum,
+      href: prefix + pageNum,
+      className: cx("ns-page-link", {
+        "is-active": active
+      }),
+      "aria-current": active ? "page" : void 0
+    }, pageNum);
+  }), hasNext ? /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-page-link ns-page-wide",
+    href: prefix + (pag.currentPage + 1),
+    rel: "next"
+  }, "Next") : /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-page-link ns-page-wide is-disabled"
+  }, "Next"), /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-page-all",
+    href: prefix + "all"
+  }, "View all ", formatInt(pag.totalMatching, locale.groupSep)));
+}
+
+// src/components/ui/CountPill.jsx
+function CountPill(props) {
+  var locale = react_default.useContext(LocaleContext);
+  var count = props.count;
+  return /* @__PURE__ */ react_default.createElement("span", {
+    className: cx("ns-pill", {
+      "ns-pill-hot": Boolean(props.hot)
+    }),
+    hidden: count <= 0,
+    "data-zero": count === 0
+  }, formatInt(count, locale.groupSep));
+}
+
+// src/components/filters/FilterOption.jsx
+function FilterOption(props) {
+  var opt = props.option;
+  var optId = react_default.useId();
+  var disabled = Boolean(props.groupDisabled || opt.count === 0 && !opt.selected);
+  return /* @__PURE__ */ react_default.createElement("li", {
+    className: cx("ns-filter-opt", {
+      "is-selected": opt.selected,
+      "is-disabled": disabled
+    })
+  }, /* @__PURE__ */ react_default.createElement("input", {
+    type: "checkbox",
+    id: optId,
+    name: props.groupId,
+    value: opt.value,
+    defaultChecked: Boolean(opt.selected),
+    disabled: disabled
+  }), /* @__PURE__ */ react_default.createElement("label", {
+    htmlFor: optId
+  }, opt.label), /* @__PURE__ */ react_default.createElement(CountPill, {
+    count: opt.count,
+    hot: false
+  }));
+}
+
+// src/components/filters/FilterGroup.jsx
+function FilterGroup(props) {
+  var group = props.group;
+  return /* @__PURE__ */ react_default.createElement("fieldset", {
+    className: "ns-filter-group",
+    disabled: Boolean(group.disabled),
+    "data-filter-key": group.id
+  }, /* @__PURE__ */ react_default.createElement("legend", {
+    className: "ns-filter-legend"
+  }, group.title), group.options.length === 0 ? /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-filter-empty"
+  }, "No options") : /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-filter-list"
+  }, group.options.map(function(opt) {
+    return /* @__PURE__ */ react_default.createElement(FilterOption, {
+      key: opt.value,
+      groupId: group.id,
+      groupDisabled: group.disabled,
+      option: opt
+    });
+  })));
+}
+
+// src/components/filters/FilterSidebar.jsx
+function FilterSidebar(props) {
+  var nav = react_default.useContext(NavContext);
+  var headingId = react_default.useId();
+  var stockToggleId = react_default.useId();
+  var filters = props.filters;
+  return /* @__PURE__ */ react_default.createElement("aside", {
+    className: "ns-sidebar",
+    "aria-labelledby": headingId
+  }, /* @__PURE__ */ react_default.createElement("details", {
+    className: "ns-filters",
+    open: true
+  }, /* @__PURE__ */ react_default.createElement("summary", {
+    className: "ns-filters-summary"
+  }, "Filters", props.activeCount > 0 ? /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-filters-count"
+  }, props.activeCount) : null), /* @__PURE__ */ react_default.createElement("form", {
+    id: "ns-filter-form",
+    className: "ns-filter-form",
+    method: "get",
+    action: nav.base + nav.path,
+    "data-autosubmit": "true"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    id: headingId,
+    className: "ns-sidebar-title"
+  }, "Filters"), props.query ? /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "q",
+    value: props.query
+  }) : null, /* @__PURE__ */ react_default.createElement("fieldset", {
+    className: "ns-filter-group"
+  }, /* @__PURE__ */ react_default.createElement("legend", {
+    className: "ns-filter-legend"
+  }, "Availability"), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-filter-opt"
+  }, /* @__PURE__ */ react_default.createElement("input", {
+    type: "checkbox",
+    id: stockToggleId,
+    name: "in_stock",
+    value: "1",
+    defaultChecked: Boolean(props.inStockOnly)
+  }), /* @__PURE__ */ react_default.createElement("label", {
+    htmlFor: stockToggleId
+  }, "In stock only"))), filters.map(function(group) {
+    return /* @__PURE__ */ react_default.createElement(FilterGroup, {
+      key: group.id,
+      group: group
+    });
+  }), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-filter-actions"
+  }, /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    className: "ns-btn ns-btn-secondary ns-btn-sm ns-nojs"
+  }, "Apply filters"), props.activeCount > 0 ? /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-filter-clear",
+    href: nav.base + props.clearHref
+  }, "Clear all") : null))));
+}
+
+// src/components/product/EmptyCatalogState.jsx
+function EmptyCatalogState(props) {
+  var nav = react_default.useContext(NavContext);
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty",
+    role: "status",
+    "data-query": props.query
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty-art",
+    "aria-hidden": "true"
+  }), /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-empty-title"
+  }, props.query ? "No results for “" + props.query + "”" : "No products match these filters"), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-empty-desc"
+  }, props.query ? "Check the spelling, use fewer words, or try a category below." : "Try removing a filter or browse another category."), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty-actions"
+  }, props.hasFilters ? /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-primary",
+    href: nav.base + props.clearHref
+  }, "Clear filters") : /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-primary",
+    href: nav.base + "/shop"
+  }, "Browse all products")), /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-empty-cats",
+    "aria-label": "Categories"
+  }, props.categories.map(function(cat) {
+    return /* @__PURE__ */ react_default.createElement("li", {
+      key: cat.id
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      href: nav.base + "/c/" + cat.slug
+    }, cat.label));
+  })));
+}
+
+// src/pages/ListingPage.jsx
+function ListingPage(props) {
+  var listing = props.listing;
+  var search = props.search;
+  var products = props.products;
+  var activeFilters = props.activeFilters;
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-listing ns-container",
+    "data-kind": listing.kind
+  }, /* @__PURE__ */ react_default.createElement("header", {
+    className: "ns-page-head"
+  }, /* @__PURE__ */ react_default.createElement("h1", {
+    className: "ns-page-title"
+  }, listing.title), listing.description ? /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-page-desc"
+  }, listing.description) : null), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-layout"
+  }, /* @__PURE__ */ react_default.createElement(FilterSidebar, {
+    filters: props.filters,
+    inStockOnly: search.inStockOnly,
+    query: listing.kind === "search" ? search.query : "",
+    activeCount: activeFilters.length,
+    clearHref: listing.clearHref
+  }), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-results"
+  }, /* @__PURE__ */ react_default.createElement(CatalogToolbar, {
+    stats: props.stats,
+    pagination: listing.pagination,
+    sortBy: search.sortBy,
+    activeFilters: activeFilters
+  }), products.length === 0 ? /* @__PURE__ */ react_default.createElement(EmptyCatalogState, {
+    query: search.query,
+    hasFilters: activeFilters.length > 0,
+    clearHref: listing.clearHref,
+    categories: props.categories
+  }) : /* @__PURE__ */ react_default.createElement(ProductGrid, {
+    products: products
+  }), /* @__PURE__ */ react_default.createElement(PaginationBar, {
+    pagination: listing.pagination
+  }))));
+}
+
+// src/pages/NotFoundPage.jsx
+function NotFoundPage(props) {
+  var nav = react_default.useContext(NavContext);
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-container"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty ns-notfound",
+    role: "status"
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-eyebrow"
+  }, "Error 404"), /* @__PURE__ */ react_default.createElement("h1", {
+    className: "ns-empty-title"
+  }, "We couldn’t find that page"), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-empty-desc"
+  }, "The link may be out of date, or the product is no longer stocked. Try searching, or start from a category."), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty-actions"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-primary",
+    href: nav.base + "/"
+  }, "Go to the home page"), /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-secondary",
+    href: nav.base + "/shop"
+  }, "All products")), /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-empty-cats",
+    "aria-label": "Categories"
+  }, props.categories.map(function(cat) {
+    return /* @__PURE__ */ react_default.createElement("li", {
+      key: cat.id
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      href: nav.base + "/c/" + cat.slug
+    }, cat.label));
+  }))));
 }
 
 // src/components/product/ReviewSnippet.jsx
@@ -776,18 +1458,18 @@ function ReviewSnippet(props) {
   if (!review) {
     return null;
   }
-  return /* @__PURE__ */ react_default.createElement("blockquote", {
+  return /* @__PURE__ */ react_default.createElement("figure", {
     className: "ns-review",
     "data-verified": Boolean(review.verified)
-  }, /* @__PURE__ */ react_default.createElement("p", {
+  }, /* @__PURE__ */ react_default.createElement("blockquote", {
     className: "ns-review-body"
-  }, "“", review.body, "”"), /* @__PURE__ */ react_default.createElement("footer", {
+  }, /* @__PURE__ */ react_default.createElement("p", null, "“", review.body, "”")), /* @__PURE__ */ react_default.createElement("figcaption", {
     className: "ns-review-meta"
   }, /* @__PURE__ */ react_default.createElement("span", {
     className: "ns-review-author"
   }, review.author), review.verified ? /* @__PURE__ */ react_default.createElement("span", {
     className: "ns-review-badge"
-  }, "Verified Buyer") : null, /* @__PURE__ */ react_default.createElement("time", {
+  }, "Verified buyer") : null, /* @__PURE__ */ react_default.createElement("time", {
     className: "ns-review-date"
   }, formatDateUTC(review.createdAtSec, false))));
 }
@@ -811,182 +1493,250 @@ function SpecList(props) {
   }));
 }
 
-// src/components/product/StarRating.jsx
-function StarRating(props) {
-  var rating = props.rating;
-  var count = props.reviewCount;
-  var clamped = rating < 0 ? 0 : rating > 5 ? 5 : rating;
-  var pct = Math.round(clamped / 5 * 100);
-  var locale = react_default.useContext(LocaleContext);
-  return /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-rating",
-    "aria-label": "Rated " + clamped.toFixed(1) + " out of 5"
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-rating-track",
-    "aria-hidden": "true"
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-rating-fill",
-    style: {
-      width: pct + "%",
-      opacity: count > 0 ? 1 : 0.35
-    }
-  })), /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-rating-num"
-  }, clamped.toFixed(1)), /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-rating-count"
-  }, "(", formatInt(count, locale.groupSep), ")"));
-}
-
-// src/components/product/ProductCard.jsx
-function ProductCard(props) {
+// src/components/product/ProductDetail.jsx
+function ProductDetail(props) {
   var p = props.product;
-  var theme = react_default.useContext(ThemeContext);
-  var palette = getThemePalette(theme);
-  var inStock = p.stock > 0;
-  var cardDataAttrs = {
-    "data-sku": p.sku,
-    "data-category": p.category,
-    "data-in-stock": inStock,
-    "data-featured": Boolean(p.featured)
-  };
-  var btnExtra = {
-    "data-add-sku": p.sku,
-    "aria-label": (inStock ? "Add to cart: " : "Unavailable: ") + p.title
-  };
-  return /* @__PURE__ */ react_default.createElement("article", Object.assign({}, cardDataAttrs, {
-    itemScope: true,
-    className: cx("ns-card", {
-      "ns-card-featured": Boolean(p.featured),
-      "ns-card-out": !inStock
-    }),
-    style: {
-      borderColor: p.featured ? palette.accent : void 0,
-      order: props.index
-    }
+  var locale = react_default.useContext(LocaleContext);
+  return /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-pdp",
+    "data-sku": p.sku
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-pdp-media"
+  }, /* @__PURE__ */ react_default.createElement(ProductArt, {
+    category: p.category,
+    size: "large",
+    eager: true
   }), /* @__PURE__ */ react_default.createElement(ProductBadges, {
     product: p
-  }), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-card-head"
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-card-brand"
-  }, p.brand), /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-card-sku"
-  }, "#", p.sku)), /* @__PURE__ */ react_default.createElement("h3", {
-    className: "ns-card-title"
-  }, /* @__PURE__ */ react_default.createElement("a", {
-    href: "/p/" + p.sku,
-    title: p.title
-  }, p.title)), /* @__PURE__ */ react_default.createElement(StarRating, {
+  })), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-pdp-info"
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-pdp-brand"
+  }, p.brand), /* @__PURE__ */ react_default.createElement("h1", {
+    className: "ns-pdp-title"
+  }, p.title), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-pdp-meta"
+  }, /* @__PURE__ */ react_default.createElement(StarRating, {
     rating: p.rating,
     reviewCount: p.reviewCount
-  }), /* @__PURE__ */ react_default.createElement(SpecList, {
-    specs: p.specs
-  }), /* @__PURE__ */ react_default.createElement(PriceBlock, {
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-pdp-sku"
+  }, "SKU ", p.sku)), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-pdp-buy"
+  }, /* @__PURE__ */ react_default.createElement(PriceBlock, {
     price: p.price,
     originalPrice: p.originalPrice,
-    rebateAmount: p.rebateAmount
-  }), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-card-footer"
-  }, /* @__PURE__ */ react_default.createElement(StockBadge, {
+    rebateAmount: p.rebateAmount,
+    large: true
+  }), /* @__PURE__ */ react_default.createElement(StockBadge, {
     stock: p.stock,
     shipsAtSec: p.shipsAtSec
-  }), /* @__PURE__ */ react_default.createElement(ActionButton, {
-    variant: inStock ? "primary" : "ghost",
-    size: "sm",
-    disabled: !inStock,
-    extraAttrs: btnExtra
-  }, inStock ? "Add to Cart" : "Notify Me")), /* @__PURE__ */ react_default.createElement(ReviewSnippet, {
+  }), /* @__PURE__ */ react_default.createElement(AddToCartForm, {
+    sku: p.sku,
+    title: p.title,
+    stock: p.stock,
+    withQty: true
+  }), /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-pdp-perks"
+  }, /* @__PURE__ */ react_default.createElement("li", null, "Free shipping on orders over ", formatMoney(props.freeShippingThreshold, locale)), /* @__PURE__ */ react_default.createElement("li", null, "30-day returns · 2-year warranty"))), /* @__PURE__ */ react_default.createElement("div", {
+    className: cx("ns-pdp-section", {
+      "is-empty": props.specs.length === 0
+    })
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-section-title"
+  }, "Specifications"), /* @__PURE__ */ react_default.createElement(SpecList, {
+    specs: props.specs
+  })), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-pdp-section"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-section-title"
+  }, "Description"), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-pdp-desc"
+  }, p.description)), p.topReview ? /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-pdp-section"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-section-title"
+  }, "Top review"), /* @__PURE__ */ react_default.createElement(ReviewSnippet, {
     review: p.topReview
-  }));
+  })) : null));
 }
 
-// src/components/product/ProductGrid.jsx
-function ProductGrid(props) {
-  var products = props.products;
-  if (products.length === 0) {
-    return /* @__PURE__ */ react_default.createElement(EmptyCatalogState, {
-      query: props.query
-    });
+// src/pages/ProductPage.jsx
+function ProductPage(props) {
+  var product = props.product;
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-product-page ns-container"
+  }, /* @__PURE__ */ react_default.createElement(ProductDetail, {
+    product: product,
+    specs: props.specs,
+    freeShippingThreshold: props.cart.freeShippingThreshold
+  }), props.related.length > 0 ? /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-section",
+    "aria-labelledby": "ns-related-title"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-section-head"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-section-heading",
+    id: "ns-related-title"
+  }, "Related tools")), /* @__PURE__ */ react_default.createElement(ProductGrid, {
+    products: props.related,
+    compact: true
+  })) : null);
+}
+
+// src/pages/SignInPage.jsx
+function SignInPage() {
+  var nav = react_default.useContext(NavContext);
+  var user = react_default.useContext(UserContext);
+  var emailId = react_default.useId();
+  var passwordId = react_default.useId();
+  if (user) {
+    return /* @__PURE__ */ react_default.createElement("div", {
+      className: "ns-auth ns-container"
+    }, /* @__PURE__ */ react_default.createElement("section", {
+      className: "ns-auth-card"
+    }, /* @__PURE__ */ react_default.createElement("div", {
+      className: "ns-account"
+    }, /* @__PURE__ */ react_default.createElement(AvatarBadge, {
+      name: user.name,
+      color: user.avatarColor
+    }), /* @__PURE__ */ react_default.createElement("div", null, /* @__PURE__ */ react_default.createElement("h1", {
+      className: "ns-auth-title"
+    }, user.name), /* @__PURE__ */ react_default.createElement("p", {
+      className: "ns-auth-sub"
+    }, "Trade account ", /* @__PURE__ */ react_default.createElement(LoyaltyBadge, {
+      tier: user.tier,
+      points: user.points
+    })))), /* @__PURE__ */ react_default.createElement("p", {
+      className: "ns-auth-note"
+    }, "Your tier discount is applied to the cart automatically."), /* @__PURE__ */ react_default.createElement("form", {
+      method: "post",
+      action: nav.base + "/signout"
+    }, /* @__PURE__ */ react_default.createElement("button", {
+      type: "submit",
+      className: "ns-btn ns-btn-secondary ns-btn-block"
+    }, "Sign out"))));
   }
   return /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-grid",
-    "data-count": products.length
-  }, products.map(function(product, index) {
-    return /* @__PURE__ */ react_default.createElement(ProductCard, {
-      key: product.sku,
-      product: product,
-      index: index
-    });
-  }));
+    className: "ns-auth ns-container"
+  }, /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-auth-card"
+  }, /* @__PURE__ */ react_default.createElement("h1", {
+    className: "ns-auth-title"
+  }, "Sign in"), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-auth-sub"
+  }, "Use your trade account for team pricing and Net-30 terms."), /* @__PURE__ */ react_default.createElement("form", {
+    className: "ns-auth-form",
+    method: "post",
+    action: nav.base + "/signin"
+  }, /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "back",
+    value: "/"
+  }), /* @__PURE__ */ react_default.createElement("label", {
+    htmlFor: emailId
+  }, "Work email"), /* @__PURE__ */ react_default.createElement("input", {
+    id: emailId,
+    type: "email",
+    name: "email",
+    autoComplete: "username",
+    defaultValue: "maya@linfabrication.com"
+  }), /* @__PURE__ */ react_default.createElement("label", {
+    htmlFor: passwordId
+  }, "Password"), /* @__PURE__ */ react_default.createElement("input", {
+    id: passwordId,
+    type: "password",
+    name: "password",
+    autoComplete: "current-password",
+    placeholder: "Any password works in the demo"
+  }), /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    className: "ns-btn ns-btn-primary ns-btn-lg ns-btn-block"
+  }, "Sign in")), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-auth-note"
+  }, "Demo store: signing in uses a sample trade account, and no password is checked.")));
 }
 
-// src/pages/CatalogPage.jsx
-function CatalogPage(props) {
+// src/pages/StorePage.jsx
+function StorePage(props) {
   var data = props.data;
   var theme = react_default.useContext(ThemeContext);
   var locale = react_default.useContext(LocaleContext);
-  var palette = getThemePalette(theme);
+  var nav = react_default.useContext(NavContext);
+  var user = react_default.useContext(UserContext);
+  var cart = data.cart;
+  var totals = react_default.useMemo(function() {
+    return computeCartTotals(cart, user);
+  }, [cart, user]);
+  var products = data.products;
+  var stats = react_default.useMemo(function() {
+    return computeCatalogStats(products);
+  }, [products]);
+  var view = nav.view;
   return /* @__PURE__ */ react_default.createElement("div", {
     id: "northstar-app",
-    className: cx("ns-shell", "ns-theme-" + theme, {
-      "ns-compact": Boolean(data.compactMode)
-    }),
+    className: "ns-shell ns-theme-" + theme,
     "data-theme": theme,
     "data-locale": locale.code,
-    "data-request-id": data.requestId,
-    style: {
-      backgroundColor: palette.bg,
-      color: palette.fg,
-      minHeight: "100vh"
-    }
-  }, /* @__PURE__ */ react_default.createElement(AnnouncementBanner, {
+    "data-view": view
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-skip",
+    href: "#ns-main"
+  }, "Skip to content"), /* @__PURE__ */ react_default.createElement(AnnouncementBanner, {
     promo: data.promo
   }), /* @__PURE__ */ react_default.createElement(SiteHeader, {
     search: data.search,
-    categories: data.categories
+    categories: data.categories,
+    cartCount: totals.unitCount
+  }), /* @__PURE__ */ react_default.createElement("main", {
+    className: "ns-main",
+    id: "ns-main"
+  }, /* @__PURE__ */ react_default.createElement(FlashMessage, {
+    flash: data.flash
   }), /* @__PURE__ */ react_default.createElement(Breadcrumbs, {
     breadcrumbs: data.breadcrumbs
-  }), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-layout"
-  }, /* @__PURE__ */ react_default.createElement(FilterSidebar, {
-    filters: data.filters,
-    inStockOnly: data.search.inStockOnly
-  }), /* @__PURE__ */ react_default.createElement("main", {
-    className: "ns-main"
-  }, /* @__PURE__ */ react_default.createElement(HeroSpotlight, {
-    spotlight: data.spotlight
-  }), /* @__PURE__ */ react_default.createElement(CatalogToolbar, {
-    stats: props.stats,
-    totalMatching: data.pagination.totalMatching,
-    sortBy: data.search.sortBy
-  }), /* @__PURE__ */ react_default.createElement(ProductGrid, {
+  }), view === "home" && data.home ? /* @__PURE__ */ react_default.createElement(HomePage, {
+    home: data.home,
     products: data.products,
-    query: data.search.query
-  }), /* @__PURE__ */ react_default.createElement(PaginationBar, {
-    pagination: data.pagination
-  })), /* @__PURE__ */ react_default.createElement(CartSummaryAside, {
-    cart: data.cart
+    categories: data.categories,
+    cart: cart
+  }) : view === "listing" && data.listing ? /* @__PURE__ */ react_default.createElement(ListingPage, {
+    listing: data.listing,
+    products: data.products,
+    stats: stats,
+    filters: data.filters,
+    activeFilters: data.activeFilters,
+    search: data.search,
+    categories: data.categories
+  }) : view === "product" && data.product ? /* @__PURE__ */ react_default.createElement(ProductPage, {
+    product: data.product,
+    specs: data.specs,
+    related: data.products,
+    cart: cart
+  }) : view === "cart" ? /* @__PURE__ */ react_default.createElement(CartPage, {
+    cart: cart,
+    totals: totals
+  }) : view === "signin" ? /* @__PURE__ */ react_default.createElement(SignInPage, null) : /* @__PURE__ */ react_default.createElement(NotFoundPage, {
+    categories: data.categories
   })), /* @__PURE__ */ react_default.createElement(SiteFooter, {
-    timestampSec: data.timestampSec
+    categories: data.categories
   }));
 }
 
 // src/App.jsx
 function App(props) {
   var data = props.data;
-  var stats = react_default.useMemo(function() {
-    return computeCatalogStats(data.products);
-  }, [data.products]);
   return /* @__PURE__ */ react_default.createElement(ThemeContext.Provider, {
     value: data.theme
   }, /* @__PURE__ */ react_default.createElement(LocaleContext.Provider, {
     value: data.locale
   }, /* @__PURE__ */ react_default.createElement(UserContext.Provider, {
     value: data.user
-  }, /* @__PURE__ */ react_default.createElement(CatalogPage, {
-    data: data,
-    stats: stats
-  }))));
+  }, /* @__PURE__ */ react_default.createElement(NavContext.Provider, {
+    value: data.nav
+  }, /* @__PURE__ */ react_default.createElement(StorePage, {
+    data: data
+  })))));
 }
 module.exports = App;
 
@@ -1100,108 +1850,132 @@ function $emitNode(v, tc) {
   $fb();
 }
 
-function $hy_mk10(cart, user) { return (function() {
+function $hy_mk69(cart, user) { return (function() {
     return computeCartTotals(cart, user);
   }); }
-function $hy_mk51(data) { return (function() {
-    return computeCatalogStats(data.products);
+function $hy_mk70(products) { return (function() {
+    return computeCatalogStats(products);
   }); }
 const $tab0 = ["ns-page-link", "ns-page-link is-active"];
 const $tab1 = ["ns-crumb-item", "ns-crumb-item is-current"];
-const $tab2 = ["ns-pill", "ns-pill ns-pill-hot"];
-const $tab3 = ["ns-promo", "ns-promo ns-promo-urgent"];
-const $tab4 = ["ns-card", "ns-card ns-card-featured", "ns-card ns-card-out", "ns-card ns-card-featured ns-card-out"];
-function $B11($rA0, $rA1, $rA2, $tc) {
-const $v0 = $rA0.sku;
-$T8($rA0, null);
+const $tab2 = ["ns-header-link ns-cart-link", "ns-header-link ns-cart-link is-current"];
+const $tab3 = ["ns-nav-item", "ns-nav-item is-active"];
+const $tab4 = ["ns-nav-item", "ns-nav-item is-active"];
+const $tab5 = ["ns-card", "ns-card ns-card-featured", "ns-card ns-card-out", "ns-card ns-card-featured ns-card-out"];
+const $tab6 = ["ns-promo", "ns-promo ns-promo-urgent"];
+const $tab7 = ["ns-pill", "ns-pill ns-pill-hot"];
+const $tab8 = ["ns-pdp-section", "ns-pdp-section is-empty"];
+function $B11($rA0, $rA1, $rA2, $rE0, $tc) {
+const $v0 = $rA0.id;
+const $v1 = $rE0.base;
+const $v2 = $rA0.slug;
+const $v3 = $rA0.label;
+$o += "<li><a href=\"" + $e((($v1 + "/c/") + $v2)) + "\">";
+$L = false;
+$tn($v3);
+$o += "</a></li>";
+$L = false;
 }
-function $B14($rA0, $rA1, $rA2, $rE0, $tc) {
+function $B21($rA0, $rA1, $rA2, $rE0, $tc) {
+const $v0 = $rA0.id;
+const $v1 = $rA0.slug;
+const $v2 = $rE0.activeSlug;
+$T19(($v1 === $v2), $rA0, null);
+}
+function $B30($rA0, $rA1, $rA2, $tc) {
+const $v0 = $rA0.sku;
+$T26($rA0, $tc);
+}
+function $B32($rA0, $rA1, $rA2, $rE0, $rE1, $tc) {
+const $v0 = $rA0.id;
+const $v1 = $rE0.base;
+const $v2 = $rA0.slug;
+const $v3 = $rA0.label;
+const $v4 = $rA0.count;
+const $v5 = $rE1.groupSep;
+const $v6 = formatInt($v4, $v5);
+$o += "<li class=\"ns-tile\"><a href=\"" + $e((($v1 + "/c/") + $v2)) + "\">";
+$L = false;
+$T25_0($v2, null);
+$o += "<span class=\"ns-tile-label\">";
+$L = false;
+$tn($v3);
+$o += "</span><span class=\"ns-tile-count\">";
+$L = false;
+$tn($v6);
+$o += ($L ? "<!-- -->" : "") + " products</span></a></li>";
+$L = false;
+}
+function $B45($rA0, $rA1, $rA2, $tc) {
+const $v0 = $rA0.sku;
+$T43($rA1, $rA0, $tc);
+}
+function $B48($rA0, $rA1, $rA2, $rE0, $tc) {
+const $v0 = $rA0.key;
+const $v1 = $rE0.base;
+const $v2 = $rA0.href;
+const $v3 = $rA0.label;
+$o += "<li><a class=\"ns-chip\"" + $at(($v1 + $v2), " href=\"", "\"", "", "", "", 2) + " aria-label=\"" + $e(("Remove filter: " + $v3)) + "\">";
+$L = false;
+$tn($v3);
+$T8_0(null);
+$o += "</a></li>";
+$L = false;
+}
+function $B50($rA0, $rA1, $rA2, $rE0, $rE1, $tc) {
 const $v0 = $rE0.currentPage;
 const $v1 = ($rA0 === $v0);
 if ($v1) {
 const $v2 = $tab0[($v1 ? 1 : 0)];
-const $v3 = ("?page=" + $rA0);
-$o += "<a href=\"" + $e($v3) + "\" class=\"" + $v2 + "\" aria-current=\"page\">";
+const $v3 = ($rE1 + $rA0);
+$o += "<a" + $at($v3, " href=\"", "\"", "", "", "", 4) + " class=\"" + $v2 + "\" aria-current=\"page\">";
 $L = false;
 $tn($rA0);
 $o += "</a>";
 $L = false;
 } else {
 const $v4 = $tab0[($v1 ? 1 : 0)];
-const $v5 = ("?page=" + $rA0);
-$o += "<a href=\"" + $e($v5) + "\" class=\"" + $v4 + "\">";
+const $v5 = ($rE1 + $rA0);
+$o += "<a" + $at($v5, " href=\"", "\"", "", "", "", 6) + " class=\"" + $v4 + "\">";
 $L = false;
 $tn($rA0);
 $o += "</a>";
 $L = false;
 }
 }
-function $B18($rA0, $rA1, $rA2, $rE0, $tc) {
+function $B54($rA0, $rA1, $rA2, $rE0, $tc) {
 const $v0 = $rA0.value;
 const $v1 = $rE0.id;
 const $v2 = $rE0.disabled;
-$T16($v2, $v1, $rA0, $tc);
+$T52($v2, $v1, $rA0, $tc);
 }
-function $B20($rA0, $rA1, $rA2, $tc) {
+function $B56($rA0, $rA1, $rA2, $tc) {
 const $v0 = $rA0.id;
-$T17($rA0, $tc);
+$T53($rA0, $tc);
 }
-function $B23($rA0, $rA1, $rA2, $rE0, $tc) {
-if (($rA1 > 0)) {
-const $v0 = ($rA1 === ($rE0.length - 1));
-if ($v0) {
-const $v1 = $rE0.length;
-const $v2 = $rA0.href;
-const $v3 = $tab1[($v0 ? 1 : 0)];
-const $v4 = $rA0.label;
-$o += "<li class=\"ns-crumb-sep\" aria-hidden=\"true\">/</li><li class=\"" + $v3 + "\"><span aria-current=\"page\">";
+function $B58($rA0, $rA1, $rA2, $rE0, $tc) {
+const $v0 = $rA0.id;
+const $v1 = $rE0.base;
+const $v2 = $rA0.slug;
+const $v3 = $rA0.label;
+$o += "<li><a href=\"" + $e((($v1 + "/c/") + $v2)) + "\">";
 $L = false;
-$tn($v4);
-$o += "</span></li>";
-$L = false;
-} else {
-const $v5 = $rE0.length;
-const $v6 = $rA0.href;
-const $v7 = $tab1[($v0 ? 1 : 0)];
-const $v8 = $rA0.label;
-$o += "<li class=\"ns-crumb-sep\" aria-hidden=\"true\">/</li><li class=\"" + $v7 + "\"><a" + $at($v6, " href=\"", "\"", "", "", "", 6) + ">";
-$L = false;
-$tn($v8);
+$tn($v3);
 $o += "</a></li>";
 $L = false;
 }
-} else {
-const $v9 = ($rA1 === ($rE0.length - 1));
-if ($v9) {
-const $v10 = $rE0.length;
-const $v11 = $rA0.href;
-const $v12 = $tab1[($v9 ? 1 : 0)];
-const $v13 = $rA0.label;
-$o += "<li class=\"" + $v12 + "\"><span aria-current=\"page\">";
+function $B61($rA0, $rA1, $rA2, $rE0, $tc) {
+const $v0 = $rA0.id;
+const $v1 = $rE0.base;
+const $v2 = $rA0.slug;
+const $v3 = $rA0.label;
+$o += "<li><a href=\"" + $e((($v1 + "/c/") + $v2)) + "\">";
 $L = false;
-$tn($v13);
-$o += "</span></li>";
-$L = false;
-} else {
-const $v14 = $rE0.length;
-const $v15 = $rA0.href;
-const $v16 = $tab1[($v9 ? 1 : 0)];
-const $v17 = $rA0.label;
-$o += "<li class=\"" + $v16 + "\"><a" + $at($v15, " href=\"", "\"", "", "", "", 9) + ">";
-$L = false;
-$tn($v17);
+$tn($v3);
 $o += "</a></li>";
 $L = false;
 }
-}
-}
-function $B34($rA0, $rA1, $rA2, $rE0, $tc) {
-const $v0 = $rA0.id;
-const $v1 = $rA0.slug;
-const $v2 = $rE0.activeSlug;
-$T32(($v1 === $v2), $rA0, null);
-}
-function $B44($rA0, $rA1, $rA2, $tc) {
+function $B64($rA0, $rA1, $rA2, $tc) {
 const $v0 = $rA0.label;
 const $v1 = $rA0.value;
 $o += "<dt class=\"ns-spec-label\">";
@@ -1213,742 +1987,1368 @@ $tn($v1);
 $o += "</dd>";
 $L = false;
 }
-function $B48($rA0, $rA1, $rA2, $tc) {
-const $v0 = $rA0.sku;
-$T46($rA1, $rA0, null);
-}
-function $T12($p0, $p1, $p2, $tc) {
-const $rC1 = $ctx[1];
-const $rI0 = $id($tc, 0);
-switch ($acls($rI0)) {
-case "v": {
-if ($p0 === "price-asc") {
-const $v0 = $p1.visibleCount;
-const $v1 = $rC1.groupSep;
-const $v2 = formatInt($v0, $v1);
-const $v3 = formatInt($p2, $v1);
-const $v4 = $p1.inStockCount;
-const $v5 = $p1.onSaleCount;
-$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing <strong>";
+function $B7($rA0, $rA1, $rA2, $rE0, $rE1, $tc) {
+const $v0 = ($rA1 === ($rE0.length - 1));
+if ($v0) {
+const $v1 = $rE0.length;
+const $v2 = $rA0.href;
+const $v3 = $tab1[($v0 ? 1 : 0)];
+const $v4 = $rA0.label;
+$o += "<li class=\"" + $v3 + "\"><span aria-current=\"page\">";
 $L = false;
-$tn($v2);
-$o += "</strong> <!-- -->of <strong>";
-$L = false;
-$tn($v3);
-$o += "</strong> <!-- -->items (";
-$L = true;
 $tn($v4);
-$o += ($L ? "<!-- -->" : "") + " ready, ";
-$L = true;
-$tn($v5);
-$o += ($L ? "<!-- -->" : "") + " on sale)</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort:</label><select id=\"" + $rI0 + "\" name=\"sort\"><option value=\"featured\">Featured</option><option value=\"price-asc\" selected=\"\">Price: Low to High</option><option value=\"price-desc\">Price: High to Low</option><option value=\"rating\">Customer Rating</option></select></div></div>";
+$o += "</span></li>";
 $L = false;
-} else if ($p0 === "rating") {
-const $v6 = $p1.visibleCount;
-const $v7 = $rC1.groupSep;
-const $v8 = formatInt($v6, $v7);
-const $v9 = formatInt($p2, $v7);
-const $v10 = $p1.inStockCount;
-const $v11 = $p1.onSaleCount;
-$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing <strong>";
-$L = false;
-$tn($v8);
-$o += "</strong> <!-- -->of <strong>";
+} else {
+const $v5 = $rE0.length;
+const $v6 = $rA0.href;
+const $v7 = $tab1[($v0 ? 1 : 0)];
+const $v8 = $rE1.base;
+const $v9 = $rA0.label;
+$o += "<li class=\"" + $v7 + "\"><a" + $at(($v8 + $v6), " href=\"", "\"", "", "", "", 12) + ">";
 $L = false;
 $tn($v9);
-$o += "</strong> <!-- -->items (";
-$L = true;
-$tn($v10);
-$o += ($L ? "<!-- -->" : "") + " ready, ";
-$L = true;
-$tn($v11);
-$o += ($L ? "<!-- -->" : "") + " on sale)</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort:</label><select id=\"" + $rI0 + "\" name=\"sort\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: Low to High</option><option value=\"price-desc\">Price: High to Low</option><option value=\"rating\" selected=\"\">Customer Rating</option></select></div></div>";
-$L = false;
-} else if ($p0 === "price-desc") {
-const $v12 = $p1.visibleCount;
-const $v13 = $rC1.groupSep;
-const $v14 = formatInt($v12, $v13);
-const $v15 = formatInt($p2, $v13);
-const $v16 = $p1.inStockCount;
-const $v17 = $p1.onSaleCount;
-$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing <strong>";
-$L = false;
-$tn($v14);
-$o += "</strong> <!-- -->of <strong>";
-$L = false;
-$tn($v15);
-$o += "</strong> <!-- -->items (";
-$L = true;
-$tn($v16);
-$o += ($L ? "<!-- -->" : "") + " ready, ";
-$L = true;
-$tn($v17);
-$o += ($L ? "<!-- -->" : "") + " on sale)</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort:</label><select id=\"" + $rI0 + "\" name=\"sort\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: Low to High</option><option value=\"price-desc\" selected=\"\">Price: High to Low</option><option value=\"rating\">Customer Rating</option></select></div></div>";
-$L = false;
-} else if ($p0 === "featured") {
-const $v18 = $p1.visibleCount;
-const $v19 = $rC1.groupSep;
-const $v20 = formatInt($v18, $v19);
-const $v21 = formatInt($p2, $v19);
-const $v22 = $p1.inStockCount;
-const $v23 = $p1.onSaleCount;
-$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing <strong>";
-$L = false;
-$tn($v20);
-$o += "</strong> <!-- -->of <strong>";
-$L = false;
-$tn($v21);
-$o += "</strong> <!-- -->items (";
-$L = true;
-$tn($v22);
-$o += ($L ? "<!-- -->" : "") + " ready, ";
-$L = true;
-$tn($v23);
-$o += ($L ? "<!-- -->" : "") + " on sale)</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort:</label><select id=\"" + $rI0 + "\" name=\"sort\"><option value=\"featured\" selected=\"\">Featured</option><option value=\"price-asc\">Price: Low to High</option><option value=\"price-desc\">Price: High to Low</option><option value=\"rating\">Customer Rating</option></select></div></div>";
-$L = false;
-} else { $fb(14); }
-break;
-}
-default: $fb(15);
-}
-}
-function $T13($p0, $tc) {
-if ((!$p0)) {
-$fb(16);
-} else {
-const $v0 = $p0.totalPages;
-if (($v0 <= 1)) {
-
-} else {
-const $v1 = Math.max(1, ($p0.currentPage - 2));
-const $v2 = Math.min($v0, ($v1 + 4));
-if (($v1 <= $v2)) {
-const $v3 = ((+$v1) + 1);
-if (($v3 <= $v2)) {
-const $v4 = ((+$v3) + 1);
-if (($v4 <= $v2)) {
-const $v5 = ((+$v4) + 1);
-if (($v5 <= $v2)) {
-const $v6 = ((+$v5) + 1);
-if (($v6 <= $v2)) {
-if ((((+$v6) + 1) <= $v2)) {
-$fb(17);
-} else {
-const $v7 = $p0.currentPage;
-$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\">";
-$L = false;
-const $a8 = [$v1, $v3, $v4, $v5, $v6];
-if (!Array.isArray($a8)) $fb(18);
-const $n8 = $a8.length;
-const $b8_0 = $p0;
-for (let $i8 = 0; $i8 < $n8; $i8++) $B14($a8[$i8], $i8, $a8, $b8_0, null);
-$o += "</nav>";
+$o += "</a></li>";
 $L = false;
 }
-} else {
-const $v9 = $p0.currentPage;
-$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\">";
-$L = false;
-const $a10 = [$v1, $v3, $v4, $v5];
-if (!Array.isArray($a10)) $fb(19);
-const $n10 = $a10.length;
-const $b10_0 = $p0;
-for (let $i10 = 0; $i10 < $n10; $i10++) $B14($a10[$i10], $i10, $a10, $b10_0, null);
-$o += "</nav>";
-$L = false;
 }
-} else {
-const $v11 = $p0.currentPage;
-$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\">";
-$L = false;
-const $a12 = [$v1, $v3, $v4];
-if (!Array.isArray($a12)) $fb(20);
-const $n12 = $a12.length;
-const $b12_0 = $p0;
-for (let $i12 = 0; $i12 < $n12; $i12++) $B14($a12[$i12], $i12, $a12, $b12_0, null);
-$o += "</nav>";
-$L = false;
-}
-} else {
-const $v13 = $p0.currentPage;
-$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\">";
-$L = false;
-const $a14 = [$v1, $v3];
-if (!Array.isArray($a14)) $fb(21);
-const $n14 = $a14.length;
-const $b14_0 = $p0;
-for (let $i14 = 0; $i14 < $n14; $i14++) $B14($a14[$i14], $i14, $a14, $b14_0, null);
-$o += "</nav>";
-$L = false;
-}
-} else {
-$fb(22);
-}
-} else {
-$fb(23);
-}
-}
-}
-}
-function $T15($p0, $p1, $tc) {
+function $T10($p0, $tc) {
 const $rC1 = $ctx[1];
-const $v0 = Boolean($p1);
-const $v1 = $tab2[($v0 ? 1 : 0)];
-const $v2 = $rC1.groupSep;
-const $v3 = formatInt($p0, $v2);
-$o += "<span class=\"" + $v1 + "\"" + (($p0 <= 0) ? " hidden=\"\"" : "") + (($p0 === 0) ? " data-zero=\"true\"" : " data-zero=\"false\"") + ">";
-$L = false;
-$tn($v3);
-$o += "</span>";
-$L = false;
-}
-function $T16($p0, $p1, $p2, $tc) {
-const $rI0 = $id($tc, 0);
-if ($p0) {
-const $v0 = Boolean($p0);
-const $v1 = $p2.selected;
-const $v2 = cx("ns-filter-opt", ({"is-selected": $v1}));
-const $v3 = $p2.value;
-const $v4 = Boolean($v1);
-const $v5 = $p2.label;
-const $v6 = $p2.count;
-const $v7 = ("f_" + $p1);
-$o += "<li" + $at($v2, " class=\"", "\"", "", "", "", 27) + "><input type=\"checkbox\" id=\"" + $rI0 + "\" name=\"" + $e($v7) + "\"" + ($v0 ? " disabled=\"\"" : "") + ($v4 ? " checked=\"\"" : "") + $at($v3, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 32) + "/><label for=\"" + $rI0 + "\">";
-$L = false;
-$tn($v5);
-$o += "</label>";
-$L = false;
-$T15_0($v6, null);
-$o += "</li>";
-$L = false;
-} else {
-const $v8 = $p2.count;
-const $v9 = Boolean(($v8 === 0));
-const $v10 = $p2.selected;
-const $v11 = cx("ns-filter-opt", ({"is-selected": $v10}));
-const $v12 = $p2.value;
-const $v13 = Boolean($v10);
-const $v14 = $p2.label;
-const $v15 = ("f_" + $p1);
-$o += "<li" + $at($v11, " class=\"", "\"", "", "", "", 34) + "><input type=\"checkbox\" id=\"" + $rI0 + "\" name=\"" + $e($v15) + "\"" + ($v9 ? " disabled=\"\"" : "") + ($v13 ? " checked=\"\"" : "") + $at($v12, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 39) + "/><label for=\"" + $rI0 + "\">";
-$L = false;
-$tn($v14);
-$o += "</label>";
-$L = false;
-$T15_0($v8, null);
-$o += "</li>";
-$L = false;
-}
-}
-function $T17($p0, $tc) {
-const $v0 = $p0.options;
-const $v1 = $v0.length;
-if (($v1 === 0)) {
-$fb(41);
-} else {
-const $v2 = $p0.disabled;
-const $v3 = Boolean($v2);
-const $v4 = $p0.id;
-const $v5 = $p0.title;
-$o += "<fieldset class=\"ns-filter-group\"" + ($v3 ? " disabled=\"\"" : "") + $at($v4, " data-filter-key=\"", "\"", " data-filter-key=\"true\"", " data-filter-key=\"false\"", "", 43) + "><legend class=\"ns-filter-legend\">";
-$L = false;
-$tn($v5);
-const $tc6 = $push($tc, 2, 1);
-$o += "</legend><ul class=\"ns-filter-list\">";
-$L = false;
-const $a7 = $v0;
-if (!Array.isArray($a7)) $fb(44);
-const $n7 = $a7.length;
-const $b7_0 = $p0;
-for (let $i7 = 0; $i7 < $n7; $i7++) $B18($a7[$i7], $i7, $a7, $b7_0, $push($tc6, $n7, $i7));
-$o += "</ul></fieldset>";
-$L = false;
-}
-}
-function $T19($p0, $p1, $tc) {
-const $rI0 = $id($tc, 0);
-const $rI1 = $id($tc, 1);
-const $v0 = Boolean($p1);
-const $tcR = $push($tc, 1, 0);
-const $tc1 = $push($tcR, 3, 2);
-$o += "<aside class=\"ns-sidebar\" aria-labelledby=\"" + $rI0 + "\"><h2 id=\"" + $rI0 + "\" class=\"ns-sidebar-title\">Filters</h2><div class=\"ns-stock-toggle\"><input type=\"checkbox\" id=\"" + $rI1 + "\" name=\"in_stock\"" + ($v0 ? " checked=\"\"" : "") + "/><label for=\"" + $rI1 + "\">In-stock items only</label></div>";
-$L = false;
-const $a2 = $p0;
-if (!Array.isArray($a2)) $fb(50);
-const $n2 = $a2.length;
-for (let $i2 = 0; $i2 < $n2; $i2++) $B20($a2[$i2], $i2, $a2, $push($tc1, $n2, $i2));
-$o += "</aside>";
-$L = false;
-}
-function $T21($p0, $tc) {
-const $rC1 = $ctx[1];
-if ((!$p0)) {
-
-} else {
-const $v0 = $p0.minOrder;
-if (($v0 !== void 0)) {
-if (($v0 > 0)) {
-const $v1 = $p0.html;
-switch ($hcls($v1)) {
-case "s": {
-const $v2 = $p0.urgent;
-const $v3 = Boolean($v2);
-const $v4 = $tab3[($v3 ? 1 : 0)];
-const $v5 = $p0.active;
-const $v6 = $p0.code;
-const $v7 = formatMoney($v0, $rC1);
-const $v8 = (!$v5);
-const $x9 = $es($v6);
-$o += "<section class=\"" + $v4 + "\"" + ($v8 ? " hidden=\"\"" : "") + ($x9 !== null ? " data-campaign=\"" + $x9 + "\"" : $at($v6, " data-campaign=\"", "\"", " data-campaign=\"true\"", " data-campaign=\"false\"", "", 53)) + "><span class=\"ns-promo-html\">" + ("" + $v1) + "</span><span class=\"ns-promo-min\"> <!-- -->(Min. order ";
-$L = true;
-$tn($v7);
-$o += ($L ? "<!-- -->" : "") + ")</span><code class=\"ns-promo-code\">";
-$L = false;
-if ($x9 !== null) $te($x9); else $tn($v6);
-$o += "</code></section>";
-$L = false;
-break;
-}
-default: $fb(54);
-}
-} else {
-$fb(55);
-}
-} else {
-const $v10 = $p0.html;
-switch ($hcls($v10)) {
-case "s": {
-const $v11 = $p0.urgent;
-const $v12 = Boolean($v11);
-const $v13 = $tab3[($v12 ? 1 : 0)];
-const $v14 = $p0.active;
-const $v15 = $p0.code;
-const $v16 = (!$v14);
-const $x17 = $es($v15);
-$o += "<section class=\"" + $v13 + "\"" + ($v16 ? " hidden=\"\"" : "") + ($x17 !== null ? " data-campaign=\"" + $x17 + "\"" : $at($v15, " data-campaign=\"", "\"", " data-campaign=\"true\"", " data-campaign=\"false\"", "", 58)) + "><span class=\"ns-promo-html\">" + ("" + $v10) + "</span><code class=\"ns-promo-code\">";
-$L = false;
-if ($x17 !== null) $te($x17); else $tn($v15);
-$o += "</code></section>";
-$L = false;
-break;
-}
-default: $fb(59);
-}
-}
-}
-}
-function $T22($p0, $tc) {
-if ((!$p0)) {
-$fb(60);
-} else {
-const $v0 = $p0.length;
-if (($v0 === 0)) {
-
-} else {
-$o += "<nav class=\"ns-crumbs\" aria-label=\"Breadcrumb\"><ol class=\"ns-crumb-list\">";
-$L = false;
-const $a1 = $p0;
-if (!Array.isArray($a1)) $fb(61);
-const $n1 = $a1.length;
-const $b1_0 = $p0;
-for (let $i1 = 0; $i1 < $n1; $i1++) $B23($a1[$i1], $i1, $a1, $b1_0, null);
-$o += "</ol></nav>";
-$L = false;
-}
-}
-}
-function $T26($p0, $tc) {
-const $rC0 = $ctx[0];
-const $rC1 = $ctx[1];
-const $v0 = formatDateUTC($p0, true);
-const $v1 = $rC1.code;
+const $rC2 = $ctx[2];
+const $v0 = $rC2.base;
+const $v1 = $rC2.assets;
 const $v2 = $rC1.currency;
-$o += "<footer class=\"ns-footer\"><p class=\"ns-footer-copy\">© Northstar Industrial Supply · Generated<!-- --> <time>";
+const $v3 = $rC1.code;
+$o += "<footer class=\"ns-footer\"><div class=\"ns-footer-grid ns-container\"><div class=\"ns-footer-about\"><a href=\"" + $e(($v0 + "/")) + "\" class=\"ns-brand ns-brand-small\"><span class=\"ns-brand-mark\" aria-hidden=\"true\"></span><span class=\"ns-brand-name\">Northstar Supply</span></a><p>Professional tools and shop supplies for maintenance teams, machine shops and electricians.</p></div><nav class=\"ns-footer-col\" aria-label=\"Shop\"><h2 class=\"ns-footer-title\">Shop</h2><ul>";
 $L = false;
-$tn($v0);
-$o += "</time></p><p class=\"ns-footer-meta\"><span>Locale: ";
-$L = true;
-$tn($v1);
-$o += "</span> · <span>Currency: ";
+const $a4 = $p0;
+if (!Array.isArray($a4)) $fb(14);
+const $n4 = $a4.length;
+const $b4_0 = $rC2;
+for (let $i4 = 0; $i4 < $n4; $i4++) $B11($a4[$i4], $i4, $a4, $b4_0, null);
+$o += "</ul></nav><nav class=\"ns-footer-col\" aria-label=\"Account\"><h2 class=\"ns-footer-title\">Account</h2><ul><li><a href=\"" + $e(($v0 + "/signin")) + "\">Sign in</a></li><li><a href=\"" + $e(($v0 + "/cart")) + "\">Cart</a></li><li><a href=\"" + $e(($v0 + "/shop")) + "\">All products</a></li></ul></nav><nav class=\"ns-footer-col\" aria-label=\"About this demo\"><h2 class=\"ns-footer-title\">About this demo</h2><ul><li><a href=\"" + $e(($v1 + "/compare")) + "\">Compare renderers</a></li><li><a href=\"" + $e(($v1 + "/")) + "\">How it works</a></li><li><a href=\"https://github.com/jlongster/northstar-supply\">Source on GitHub</a></li></ul></nav></div><p class=\"ns-footer-meta ns-container\"><span>© Northstar Supply Co. Demo store: no orders are placed.</span><span>Prices in ";
 $L = true;
 $tn($v2);
-$o += "</span> · <span>Theme: ";
+$o += ($L ? "<!-- -->" : "") + " (";
 $L = true;
-$tn($rC0);
-$o += "</span></p></footer>";
+$tn($v3);
+$o += ($L ? "<!-- -->" : "") + ")</span></p></footer>";
 $L = false;
 }
-function $T28($p0, $p1, $tc) {
+function $T13($p0, $p1, $tc) {
 if ($p0) {
 switch ($scls($p0)) {
 case "S": {
 const $v0 = computeInitials($p1);
-$o += "<span class=\"ns-avatar\" aria-hidden=\"true\" style=\"background-color:" + $e(("" + $p0).trim()) + ";color:#ffffff;width:28px;height:28px;line-height:28px;font-weight:700\">";
+$o += "<span class=\"ns-avatar\" aria-hidden=\"true\" style=\"background-color:" + $e(("" + $p0).trim()) + ";color:#ffffff\">";
 $L = false;
 $tn($v0);
 $o += "</span>";
 $L = false;
 break;
 }
-default: $fb(62);
+default: $fb(20);
 }
 } else {
 const $v1 = computeInitials($p1);
-$o += "<span class=\"ns-avatar\" aria-hidden=\"true\" style=\"background-color:#0369a1;color:#ffffff;width:28px;height:28px;line-height:28px;font-weight:700\">";
+$o += "<span class=\"ns-avatar\" aria-hidden=\"true\" style=\"background-color:#3f3f46;color:#ffffff\">";
 $L = false;
 $tn($v1);
 $o += "</span>";
 $L = false;
 }
 }
-function $T29($p0, $p1, $tc) {
+function $T14($p0, $p1, $tc) {
 const $rC1 = $ctx[1];
 if ($p1) {
 const $v0 = cx("ns-tier", ("ns-tier-" + $p1));
-const $v1 = $p1.toUpperCase();
-const $v2 = $rC1.groupSep;
-const $v3 = formatInt($p0, $v2);
-$o += "<span" + $at($v0, " class=\"", "\"", "", "", "", 63) + $at($p1, " data-tier=\"", "\"", " data-tier=\"true\"", " data-tier=\"false\"", "", 64) + $at($p0, " data-points=\"", "\"", " data-points=\"true\"", " data-points=\"false\"", "", 65) + ">";
+const $v1 = $rC1.groupSep;
+const $v2 = formatInt($p0, $v1);
+const $v3 = $p1.toUpperCase();
+$o += "<span" + $at($v0, " class=\"", "\"", "", "", "", 21) + $at($p1, " data-tier=\"", "\"", " data-tier=\"true\"", " data-tier=\"false\"", "", 22) + $at($p0, " data-points=\"", "\"", " data-points=\"true\"", " data-points=\"false\"", "", 23) + " title=\"" + $e(($v2 + " points")) + "\">";
 $L = false;
-$tn($v1);
-$o += ($L ? "<!-- -->" : "") + " (";
-$L = true;
 $tn($v3);
-$o += ($L ? "<!-- -->" : "") + " pts)</span>";
+$o += "</span>";
 $L = false;
 } else {
-$fb(66);
+$fb(25);
 }
 }
-function $T30($tc) {
+function $T15($tc) {
 const $rC2 = $ctx[2];
-if ((!$rC2)) {
-$o += "<div class=\"ns-user ns-user-anon\" data-authenticated=\"false\"><a href=\"/signin\" class=\"ns-link\">Sign in</a><a href=\"/register\" class=\"ns-link ns-link-cta\">Trade Account</a></div>";
+const $rC3 = $ctx[3];
+if ((!$rC3)) {
+const $v0 = $rC2.base;
+const $v1 = ($v0 + "/signin");
+$o += "<div class=\"ns-user ns-user-anon\" data-authenticated=\"false\"><a href=\"" + $e($v1) + "\" class=\"ns-header-link\">";
+$L = false;
+$T8_1(null);
+$o += "<span class=\"ns-header-link-label\">Sign in</span></a></div>";
 $L = false;
 } else {
-const $v0 = $rC2.savedCount;
-if (($v0 > 0)) {
-const $v1 = $rC2.id;
-const $v2 = $rC2.name;
-const $v3 = $rC2.avatarColor;
-const $v4 = $rC2.tier;
-const $v5 = $rC2.points;
-$o += "<div class=\"ns-user ns-user-auth\" data-authenticated=\"true\"" + $at($v1, " data-user-id=\"", "\"", " data-user-id=\"true\"", " data-user-id=\"false\"", "", 67) + ">";
+const $v2 = $rC3.id;
+const $v3 = $rC2.base;
+const $v4 = $rC3.name;
+const $v5 = $rC3.avatarColor;
+const $v6 = $rC3.tier;
+const $v7 = $rC3.points;
+const $v8 = ($v3 + "/signin");
+$o += "<div class=\"ns-user ns-user-auth\" data-authenticated=\"true\"" + $at($v2, " data-user-id=\"", "\"", " data-user-id=\"true\"", " data-user-id=\"false\"", "", 27) + "><a href=\"" + $e($v8) + "\" class=\"ns-header-link\" title=\"" + $e(("Account: " + $v4)) + "\">";
 $L = false;
-$T28($v3, $v2, null);
-$o += "<span class=\"ns-greeting\">Hi, ";
-$L = true;
-$tn($v2);
+$T13($v5, $v4, null);
+$o += "<span class=\"ns-header-link-label ns-greeting\">";
+$L = false;
+$tn($v4);
 $o += "</span>";
 $L = false;
-$T29($v5, $v4, null);
-$o += "<a href=\"/saved\" class=\"ns-saved-link\">Saved (";
-$L = true;
-$tn($v0);
-$o += ($L ? "<!-- -->" : "") + ")</a></div>";
+$T14($v7, $v6, null);
+$o += "</a></div>";
+$L = false;
+}
+}
+function $T16($tc) {
+const $rC0 = $ctx[0];
+const $rC2 = $ctx[2];
+if (($rC0 === "dark")) {
+const $v0 = $rC2.base;
+const $v1 = $rC2.current;
+const $v2 = ($v0 + "/theme");
+$o += "<form class=\"ns-theme-toggle\" method=\"post\" action=\"" + $e($v2) + "\"><input type=\"hidden\" name=\"theme\" value=\"light\"/><input type=\"hidden\" name=\"back\"" + $at($v1, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 31) + "/><button type=\"submit\" class=\"ns-icon-btn\" aria-label=\"Switch to light theme\" title=\"Switch to light theme\">";
+$L = false;
+$T8_2(null);
+$o += "</button></form>";
 $L = false;
 } else {
-const $v6 = $rC2.id;
-const $v7 = $rC2.name;
-const $v8 = $rC2.avatarColor;
-const $v9 = $rC2.tier;
-const $v10 = $rC2.points;
-$o += "<div class=\"ns-user ns-user-auth\" data-authenticated=\"true\"" + $at($v6, " data-user-id=\"", "\"", " data-user-id=\"true\"", " data-user-id=\"false\"", "", 68) + ">";
+const $v3 = $rC2.base;
+const $v4 = $rC2.current;
+const $v5 = ($v3 + "/theme");
+$o += "<form class=\"ns-theme-toggle\" method=\"post\" action=\"" + $e($v5) + "\"><input type=\"hidden\" name=\"theme\" value=\"dark\"/><input type=\"hidden\" name=\"back\"" + $at($v4, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 33) + "/><button type=\"submit\" class=\"ns-icon-btn\" aria-label=\"Switch to dark theme\" title=\"Switch to dark theme\">";
 $L = false;
-$T28($v8, $v7, null);
-$o += "<span class=\"ns-greeting\">Hi, ";
-$L = true;
-$tn($v7);
-$o += "</span>";
-$L = false;
-$T29($v10, $v9, null);
-$o += "</div>";
+$T8_3(null);
+$o += "</button></form>";
 $L = false;
 }
 }
+function $T17($p0, $tc) {
+const $rC2 = $ctx[2];
+if (($p0 === 1)) {
+const $v0 = $rC2.base;
+const $v1 = $rC2.view;
+const $v2 = $tab2[(($v1 === "cart") ? 1 : 0)];
+const $v3 = ($v0 + "/cart");
+const $v4 = ("Cart, " + $p0);
+$o += "<a href=\"" + $e($v3) + "\" class=\"" + $v2 + "\" aria-label=\"" + $e($v4) + " item\">";
+$L = false;
+$T8_4(null);
+const $v5 = ($p0 === 0);
+$o += "<span class=\"ns-header-link-label\">Cart</span><span class=\"ns-cart-count\"" + ($v5 ? " hidden=\"\"" : "") + ">";
+$L = false;
+$tn($p0);
+$o += "</span></a>";
+$L = false;
+} else {
+const $v6 = $rC2.base;
+const $v7 = $rC2.view;
+const $v8 = $tab2[(($v7 === "cart") ? 1 : 0)];
+const $v9 = ($v6 + "/cart");
+const $v10 = ("Cart, " + $p0);
+$o += "<a href=\"" + $e($v9) + "\" class=\"" + $v8 + "\" aria-label=\"" + $e($v10) + " items\">";
+$L = false;
+$T8_4(null);
+const $v11 = ($p0 === 0);
+$o += "<span class=\"ns-header-link-label\">Cart</span><span class=\"ns-cart-count\"" + ($v11 ? " hidden=\"\"" : "") + ">";
+$L = false;
+$tn($p0);
+$o += "</span></a>";
+$L = false;
 }
-function $T31($p0, $tc) {
+}
+function $T18($p0, $tc) {
+const $rC2 = $ctx[2];
 const $rI0 = $id($tc, 0);
 const $v0 = $p0.query;
 if ($v0) {
 const $v1 = $v0.length;
 const $v2 = Boolean(($v1 > 0));
-const $v3 = $p0.disabled;
-const $v4 = Boolean($v3);
-const $v5 = $p0.readOnly;
-const $v6 = Boolean($v5);
-const $v7 = $p0.required;
-const $v8 = Boolean($v7);
-$o += "<form class=\"ns-search\" role=\"search\" action=\"/catalog\" method=\"get\"><label class=\"ns-sr-only\" for=\"" + $rI0 + "\">Search hardware</label><input type=\"search\" id=\"" + $rI0 + "\" name=\"q\" placeholder=\"Search SKU, tool, or spec...\"" + ($v4 ? " disabled=\"\"" : "") + ($v6 ? " readonly=\"\"" : "") + ($v8 ? " required=\"\"" : "") + " autoComplete=\"off\"" + ($v2 ? " data-has-query=\"true\"" : " data-has-query=\"false\"") + $at($v0, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 75) + "/>";
+const $v3 = $rC2.base;
+const $v4 = $p0.disabled;
+const $v5 = Boolean($v4);
+const $v6 = $p0.readOnly;
+const $v7 = Boolean($v6);
+const $v8 = $p0.required;
+const $v9 = Boolean($v8);
+const $v10 = ($v3 + "/search");
+$o += "<form class=\"ns-search\" role=\"search\" action=\"" + $e($v10) + "\" method=\"get\"><label class=\"ns-sr-only\" for=\"" + $rI0 + "\">Search products</label>";
 $L = false;
-$T7_0($v4, null);
-$o += "</form>";
+$T8_5(null);
+$o += "<input type=\"search\" id=\"" + $rI0 + "\" name=\"q\" placeholder=\"Search tools, brands or SKUs\"" + ($v5 ? " disabled=\"\"" : "") + ($v7 ? " readonly=\"\"" : "") + ($v9 ? " required=\"\"" : "") + " autoComplete=\"off\"" + ($v2 ? " data-has-query=\"true\"" : " data-has-query=\"false\"") + $at($v0, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 49) + "/><button type=\"submit\" class=\"ns-search-submit\"" + ($v5 ? " disabled=\"\"" : "") + " data-action=\"catalog-search\">Search</button></form>";
 $L = false;
 } else {
-const $v9 = Boolean($v0);
-const $v10 = $p0.disabled;
-const $v11 = Boolean($v10);
-const $v12 = $p0.readOnly;
-const $v13 = Boolean($v12);
-const $v14 = $p0.required;
-const $v15 = Boolean($v14);
-$o += "<form class=\"ns-search\" role=\"search\" action=\"/catalog\" method=\"get\"><label class=\"ns-sr-only\" for=\"" + $rI0 + "\">Search hardware</label><input type=\"search\" id=\"" + $rI0 + "\" name=\"q\" placeholder=\"Search SKU, tool, or spec...\"" + ($v11 ? " disabled=\"\"" : "") + ($v13 ? " readonly=\"\"" : "") + ($v15 ? " required=\"\"" : "") + " autoComplete=\"off\"" + ($v9 ? " data-has-query=\"true\"" : " data-has-query=\"false\"") + $at($v0, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 82) + "/>";
+const $v11 = Boolean($v0);
+const $v12 = $rC2.base;
+const $v13 = $p0.disabled;
+const $v14 = Boolean($v13);
+const $v15 = $p0.readOnly;
+const $v16 = Boolean($v15);
+const $v17 = $p0.required;
+const $v18 = Boolean($v17);
+const $v19 = ($v12 + "/search");
+$o += "<form class=\"ns-search\" role=\"search\" action=\"" + $e($v19) + "\" method=\"get\"><label class=\"ns-sr-only\" for=\"" + $rI0 + "\">Search products</label>";
 $L = false;
-$T7_0($v11, null);
-$o += "</form>";
+$T8_5(null);
+$o += "<input type=\"search\" id=\"" + $rI0 + "\" name=\"q\" placeholder=\"Search tools, brands or SKUs\"" + ($v14 ? " disabled=\"\"" : "") + ($v16 ? " readonly=\"\"" : "") + ($v18 ? " required=\"\"" : "") + " autoComplete=\"off\"" + ($v11 ? " data-has-query=\"true\"" : " data-has-query=\"false\"") + $at($v0, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 58) + "/><button type=\"submit\" class=\"ns-search-submit\"" + ($v14 ? " disabled=\"\"" : "") + " data-action=\"catalog-search\">Search</button></form>";
 $L = false;
 }
 }
-function $T32($p0, $p1, $tc) {
+function $T19($p0, $p1, $tc) {
+const $rC2 = $ctx[2];
 if ($p0) {
-const $v0 = cx("ns-nav-item", ({"is-active": $p0}));
-const $v1 = $p1.slug;
-const $v2 = $p1.label;
-const $v3 = $p1.count;
-const $v4 = $p1.hot;
-const $v5 = ("/c/" + $v1);
-$o += "<li" + $at($v0, " class=\"", "\"", "", "", "", 83) + "><a href=\"" + $e($v5) + "\" aria-current=\"page\"" + $at($v1, " data-category=\"", "\"", " data-category=\"true\"", " data-category=\"false\"", "", 85) + "><span class=\"ns-nav-label\">";
+const $v0 = $p1.hot;
+const $v1 = Boolean($v0);
+const $v2 = cx("ns-nav-item", ({"is-active": $p0, "is-hot": $v1}));
+const $v3 = $rC2.base;
+const $v4 = $p1.slug;
+const $v5 = $p1.label;
+const $v6 = (($v3 + "/c/") + $v4);
+$o += "<li" + $at($v2, " class=\"", "\"", "", "", "", 60) + "><a href=\"" + $e($v6) + "\" aria-current=\"page\"" + $at($v4, " data-category=\"", "\"", " data-category=\"true\"", " data-category=\"false\"", "", 62) + ">";
 $L = false;
-$tn($v2);
-$o += "</span>";
-$L = false;
-$T15($v3, $v4, null);
+$tn($v5);
 $o += "</a></li>";
 $L = false;
 } else {
-const $v6 = cx("ns-nav-item", ({"is-active": $p0}));
-const $v7 = $p1.slug;
-const $v8 = $p1.label;
-const $v9 = $p1.count;
-const $v10 = $p1.hot;
-const $v11 = ("/c/" + $v7);
-$o += "<li" + $at($v6, " class=\"", "\"", "", "", "", 86) + "><a href=\"" + $e($v11) + "\"" + $at($v7, " data-category=\"", "\"", " data-category=\"true\"", " data-category=\"false\"", "", 88) + "><span class=\"ns-nav-label\">";
+const $v7 = $p1.hot;
+const $v8 = Boolean($v7);
+const $v9 = cx("ns-nav-item", ({"is-active": $p0, "is-hot": $v8}));
+const $v10 = $rC2.base;
+const $v11 = $p1.slug;
+const $v12 = $p1.label;
+const $v13 = (($v10 + "/c/") + $v11);
+$o += "<li" + $at($v9, " class=\"", "\"", "", "", "", 63) + "><a href=\"" + $e($v13) + "\"" + $at($v11, " data-category=\"", "\"", " data-category=\"true\"", " data-category=\"false\"", "", 65) + ">";
 $L = false;
-$tn($v8);
-$o += "</span>";
-$L = false;
-$T15($v9, $v10, null);
+$tn($v12);
 $o += "</a></li>";
 $L = false;
 }
 }
-function $T33($rP, $tc) {
+function $T20($rP, $tc) {
+const $rC2 = $ctx[2];
 const $v0 = $rP.categories;
 if ((!$v0)) {
-$fb(89);
+$fb(66);
 } else {
 const $v1 = $v0.length;
 if (($v1 === 0)) {
 
 } else {
-$o += "<nav class=\"ns-nav\" aria-label=\"Categories\"><ul class=\"ns-nav-list\">";
+const $v2 = $rC2.view;
+const $v3 = ($v2 === "listing");
+if ($v3) {
+const $v4 = $rC2.path;
+const $v5 = ($v4 === "/shop");
+if ($v5) {
+const $v6 = $tab3[($v5 ? 1 : 0)];
+const $v7 = $rC2.base;
+const $v8 = ($v7 + "/shop");
+$o += "<nav class=\"ns-nav\" aria-label=\"Categories\"><ul class=\"ns-nav-list ns-container\"><li class=\"" + $v6 + "\"><a href=\"" + $e($v8) + "\" aria-current=\"page\">All products</a></li>";
 $L = false;
-const $a2 = $v0;
-if (!Array.isArray($a2)) $fb(90);
-const $n2 = $a2.length;
-const $b2_0 = $rP;
-for (let $i2 = 0; $i2 < $n2; $i2++) $B34($a2[$i2], $i2, $a2, $b2_0, null);
+const $a9 = $v0;
+if (!Array.isArray($a9)) $fb(69);
+const $n9 = $a9.length;
+const $b9_0 = $rP;
+for (let $i9 = 0; $i9 < $n9; $i9++) $B21($a9[$i9], $i9, $a9, $b9_0, null);
+$o += "</ul></nav>";
+$L = false;
+} else {
+const $v10 = $tab3[($v5 ? 1 : 0)];
+const $v11 = $rC2.base;
+const $v12 = ($v11 + "/shop");
+$o += "<nav class=\"ns-nav\" aria-label=\"Categories\"><ul class=\"ns-nav-list ns-container\"><li class=\"" + $v10 + "\"><a href=\"" + $e($v12) + "\">All products</a></li>";
+$L = false;
+const $a13 = $v0;
+if (!Array.isArray($a13)) $fb(72);
+const $n13 = $a13.length;
+const $b13_0 = $rP;
+for (let $i13 = 0; $i13 < $n13; $i13++) $B21($a13[$i13], $i13, $a13, $b13_0, null);
+$o += "</ul></nav>";
+$L = false;
+}
+} else {
+const $v14 = $tab4[($v3 ? 1 : 0)];
+const $v15 = $rC2.base;
+const $v16 = ($v15 + "/shop");
+$o += "<nav class=\"ns-nav\" aria-label=\"Categories\"><ul class=\"ns-nav-list ns-container\"><li class=\"" + $v14 + "\"><a href=\"" + $e($v16) + "\">All products</a></li>";
+$L = false;
+const $a17 = $v0;
+if (!Array.isArray($a17)) $fb(75);
+const $n17 = $a17.length;
+const $b17_0 = $rP;
+for (let $i17 = 0; $i17 < $n17; $i17++) $B21($a17[$i17], $i17, $a17, $b17_0, null);
 $o += "</ul></nav>";
 $L = false;
 }
 }
 }
-function $T35($p0, $p1, $tc) {
-const $v0 = $p1.categorySlug;
-const $tc1 = $push($tc, 2, 0);
-const $tc2 = $push($tc1, 3, 1);
-$o += "<header class=\"ns-header\"><div class=\"ns-header-top\"><a href=\"/\" class=\"ns-brand\" data-brand=\"northstar\">Northstar Supply</a>";
+}
+function $T22($p0, $p1, $p2, $tc) {
+const $rC2 = $ctx[2];
+const $v0 = $rC2.base;
+const $v1 = $p2.categorySlug;
+const $tc2 = $push($tc, 2, 0);
+const $tc3 = $push($tc2, 3, 1);
+$o += "<header class=\"ns-header\"><div class=\"ns-header-top ns-container\"><a href=\"" + $e(($v0 + "/")) + "\" class=\"ns-brand\" data-brand=\"northstar\"><span class=\"ns-brand-mark\" aria-hidden=\"true\"></span><span class=\"ns-brand-name\">Northstar Supply</span></a>";
 $L = false;
-$T31($p1, $tc2);
-$T30(null);
-$o += "</div>";
+$T18($p2, $tc3);
+$o += "<div class=\"ns-header-actions\">";
 $L = false;
-$T33({ "categories": $p0, "activeSlug": $v0 }, null);
+$T16(null);
+$T15(null);
+$T17($p0, null);
+$o += "</div></div>";
+$L = false;
+$T20({ "categories": $p1, "activeSlug": $v1 }, null);
 $o += "</header>";
 $L = false;
 }
-function $T36($p0, $p1, $p2, $tc) {
-const $rC1 = $ctx[1];
-const $v0 = ((typeof $p0) === "number");
-if ($v0) {
-if (($p0 > $p1)) {
-const $v1 = ($p0 > 0);
-if ($v1) {
-const $v2 = ((typeof $p2) === "number");
-if ($v2) {
-const $v3 = ($p2 !== 0);
-if ($v3) {
-const $v4 = Math.round(((($p0 - $p1) / $p0) * 100));
-const $v5 = formatMoney($p1, $rC1);
-const $v6 = formatMoney($p0, $rC1);
-const $v7 = formatMoney($p2, $rC1);
-$o += "<div class=\"ns-price-block\"" + ($v1 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
-$L = false;
-$tn($v5);
-$o += "</span><del class=\"ns-price-orig\">";
-$L = false;
-$tn($v6);
-$o += "</del><span class=\"ns-price-save\">Save ";
-$L = true;
-$te(("" + $v4));
-$o += ($L ? "<!-- -->" : "") + "%</span><span class=\"ns-price-rebate\">Rebate: ";
-$L = true;
-$tn($v7);
-$o += "</span></div>";
+function $T25($p0, $p1, $p2, $tc) {
+const $rC2 = $ctx[2];
+if ($p2) {
+if (($p2 === "large")) {
+if ($p1) {
+const $v0 = ("ns-art-cat-" + $p0);
+const $v1 = cx("ns-art", ("ns-art-" + $p2), $v0);
+const $v2 = $rC2.assets;
+const $v3 = ((($v2 + "/art/") + $p0) + ".svg");
+$o += "<div" + $at($v1, " class=\"", "\"", "", "", "", 77) + "><img src=\"" + $e((($v2 + "/art/") + $p0)) + ".svg\" alt=\"\" width=\"560\" height=\"420\" decoding=\"async\"/></div>";
 $L = false;
 } else {
-$fb(92);
+$fb(79);
 }
 } else {
-const $v8 = Math.round(((($p0 - $p1) / $p0) * 100));
-const $v9 = formatMoney($p1, $rC1);
-const $v10 = formatMoney($p0, $rC1);
-$o += "<div class=\"ns-price-block\"" + ($v1 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+if (($p2 === "thumb")) {
+if ($p1) {
+$fb(80);
+} else {
+const $v4 = ("ns-art-cat-" + $p0);
+const $v5 = cx("ns-art", ("ns-art-" + $p2), $v4);
+const $v6 = $rC2.assets;
+const $v7 = ((($v6 + "/art/") + $p0) + ".svg");
+$o += "<div" + $at($v5, " class=\"", "\"", "", "", "", 81) + "><img src=\"" + $e((($v6 + "/art/") + $p0)) + ".svg\" alt=\"\" width=\"72\" height=\"54\" loading=\"lazy\" decoding=\"async\"/></div>";
 $L = false;
-$tn($v9);
-$o += "</span><del class=\"ns-price-orig\">";
+}
+} else {
+if ($p1) {
+$fb(83);
+} else {
+const $v8 = ("ns-art-cat-" + $p0);
+const $v9 = cx("ns-art", ("ns-art-" + $p2), $v8);
+const $v10 = $rC2.assets;
+const $v11 = ((($v10 + "/art/") + $p0) + ".svg");
+$o += "<div" + $at($v9, " class=\"", "\"", "", "", "", 84) + "><img src=\"" + $e((($v10 + "/art/") + $p0)) + ".svg\" alt=\"\" width=\"320\" height=\"240\" loading=\"lazy\" decoding=\"async\"/></div>";
+$L = false;
+}
+}
+}
+} else {
+if ($p1) {
+const $v12 = ("ns-art-cat-" + $p0);
+const $v13 = cx("ns-art", "ns-art-card", $v12);
+const $v14 = $rC2.assets;
+const $v15 = ((($v14 + "/art/") + $p0) + ".svg");
+$o += "<div" + $at($v13, " class=\"", "\"", "", "", "", 86) + "><img src=\"" + $e((($v14 + "/art/") + $p0)) + ".svg\" alt=\"\" width=\"320\" height=\"240\" decoding=\"async\"/></div>";
+$L = false;
+} else {
+const $v16 = ("ns-art-cat-" + $p0);
+const $v17 = cx("ns-art", "ns-art-card", $v16);
+const $v18 = $rC2.assets;
+const $v19 = ((($v18 + "/art/") + $p0) + ".svg");
+$o += "<div" + $at($v17, " class=\"", "\"", "", "", "", 88) + "><img src=\"" + $e((($v18 + "/art/") + $p0)) + ".svg\" alt=\"\" width=\"320\" height=\"240\" loading=\"lazy\" decoding=\"async\"/></div>";
+$L = false;
+}
+}
+}
+function $T26($p0, $tc) {
+const $rC1 = $ctx[1];
+const $rC2 = $ctx[2];
+const $rI0 = $id($tc, 0);
+const $v0 = $p0.category;
+if ($v0) {
+const $v1 = $p0.backordered;
+if ($v1) {
+const $v2 = $p0.qty;
+const $v3 = $p0.unitPrice;
+const $v4 = $p0.sku;
+const $v5 = $rC2.base;
+const $v6 = $p0.title;
+const $v7 = formatMoney($v3, $rC1);
+const $v8 = formatMoney(($v2 * $v3), $rC1);
+const $x9 = $es($v4);
+$o += "<li class=\"ns-cart-item\"" + ($x9 !== null ? " data-sku=\"" + $x9 + "\"" : $at($v4, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 90)) + ">";
+$L = false;
+$T25_1($v0, null);
+const $v10 = (($v5 + "/p/") + $v4);
+$o += "<div class=\"ns-cart-item-main\"><a class=\"ns-cart-item-title\" href=\"" + $e($v10) + "\">";
+$L = false;
+$tn($v6);
+$o += "</a><p class=\"ns-cart-item-meta\">SKU ";
+$L = true;
+if ($x9 !== null) $te($x9); else $tn($v4);
+$o += ($L ? "<!-- -->" : "") + " · ";
+$L = true;
+$tn($v7);
+const $v11 = ($v5 + "/cart/update");
+$o += ($L ? "<!-- -->" : "") + " each</p><p class=\"ns-cart-backorder\">Backordered: ships when restocked</p></div><form class=\"ns-cart-item-qty\" method=\"post\" action=\"" + $e($v11) + "\"><input type=\"hidden\" name=\"sku\"" + ($x9 !== null ? " value=\"" + $x9 + "\"" : $at($v4, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 93)) + "/><label class=\"ns-sr-only\" for=\"" + $rI0 + "\">Quantity</label><input id=\"" + $rI0 + "\" type=\"number\" name=\"qty\" min=\"1\" max=\"99\" inputMode=\"numeric\"" + $at($v2, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 96) + "/><button type=\"submit\" class=\"ns-btn ns-btn-secondary ns-btn-sm\">Update</button><button type=\"submit\" name=\"remove\" value=\"1\" class=\"ns-btn ns-btn-ghost ns-btn-sm\">Remove</button></form><p class=\"ns-cart-item-total\">";
+$L = false;
+$tn($v8);
+$o += "</p></li>";
+$L = false;
+} else {
+const $v12 = $p0.qty;
+const $v13 = $p0.unitPrice;
+const $v14 = $p0.sku;
+const $v15 = $rC2.base;
+const $v16 = $p0.title;
+const $v17 = formatMoney($v13, $rC1);
+const $v18 = formatMoney(($v12 * $v13), $rC1);
+const $x19 = $es($v14);
+$o += "<li class=\"ns-cart-item\"" + ($x19 !== null ? " data-sku=\"" + $x19 + "\"" : $at($v14, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 97)) + ">";
+$L = false;
+$T25_1($v0, null);
+const $v20 = (($v15 + "/p/") + $v14);
+$o += "<div class=\"ns-cart-item-main\"><a class=\"ns-cart-item-title\" href=\"" + $e($v20) + "\">";
+$L = false;
+$tn($v16);
+$o += "</a><p class=\"ns-cart-item-meta\">SKU ";
+$L = true;
+if ($x19 !== null) $te($x19); else $tn($v14);
+$o += ($L ? "<!-- -->" : "") + " · ";
+$L = true;
+$tn($v17);
+const $v21 = ($v15 + "/cart/update");
+$o += ($L ? "<!-- -->" : "") + " each</p></div><form class=\"ns-cart-item-qty\" method=\"post\" action=\"" + $e($v21) + "\"><input type=\"hidden\" name=\"sku\"" + ($x19 !== null ? " value=\"" + $x19 + "\"" : $at($v14, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 100)) + "/><label class=\"ns-sr-only\" for=\"" + $rI0 + "\">Quantity</label><input id=\"" + $rI0 + "\" type=\"number\" name=\"qty\" min=\"1\" max=\"99\" inputMode=\"numeric\"" + $at($v12, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 103) + "/><button type=\"submit\" class=\"ns-btn ns-btn-secondary ns-btn-sm\">Update</button><button type=\"submit\" name=\"remove\" value=\"1\" class=\"ns-btn ns-btn-ghost ns-btn-sm\">Remove</button></form><p class=\"ns-cart-item-total\">";
+$L = false;
+$tn($v18);
+$o += "</p></li>";
+$L = false;
+}
+} else {
+$fb(104);
+}
+}
+function $T27($p0, $p1, $p2, $p3, $p4, $p5, $p6, $tc) {
+if ($p6) {
+if ($p4) {
+if ($p5) {
+const $k0 = $okeys($p3);
+if (typeof $k0 !== "string" && $k0.length === 2 && $k0[0] === "data-add-sku" && $k0[1] === "aria-label") {
+const $v1 = cx("ns-btn", ("ns-btn-" + $p6), ("ns-btn-" + $p4), $p1);
+const $v2 = Boolean($p2);
+const $v3 = $p3["data-add-sku"];
+const $v4 = $p3["aria-label"];
+$o += "<button" + $at($v3, " data-add-sku=\"", "\"", " data-add-sku=\"true\"", " data-add-sku=\"false\"", "", 105) + $at($v4, " aria-label=\"", "\"", " aria-label=\"true\"", " aria-label=\"false\"", "", 106) + $at($p5, " type=\"", "\"", "", "", "", 107) + $at($v1, " class=\"", "\"", "", "", "", 108) + ($v2 ? " disabled=\"\"" : "") + $at($p6, " data-variant=\"", "\"", " data-variant=\"true\"", " data-variant=\"false\"", "", 110) + ">";
+$L = false;
+$tn($p0);
+$o += "</button>";
+$L = false;
+} else { $fb(111); }
+} else {
+const $k5 = $okeys($p3);
+if ($k5 === "#nullish") {
+const $v6 = cx("ns-btn", ("ns-btn-" + $p6), ("ns-btn-" + $p4), $p1);
+const $v7 = Boolean($p2);
+$o += "<button type=\"button\"" + $at($v6, " class=\"", "\"", "", "", "", 112) + ($v7 ? " disabled=\"\"" : "") + $at($p6, " data-variant=\"", "\"", " data-variant=\"true\"", " data-variant=\"false\"", "", 114) + ">";
+$L = false;
+$tn($p0);
+$o += "</button>";
+$L = false;
+} else { $fb(115); }
+}
+} else {
+$fb(116);
+}
+} else {
+$fb(117);
+}
+}
+function $T28($p0, $p1, $tc) {
+const $rC1 = $ctx[1];
+const $v0 = $p1.freeShippingRemaining;
+if (($v0 > 0)) {
+const $v1 = $p1.unitCount;
+const $v2 = ($v1 === 1);
+if ($v2) {
+const $v3 = $p1.memberDiscount;
+const $v4 = ($v3 !== 0);
+if ($v4) {
+const $v5 = $p1.credit;
+const $v6 = ($v5 !== 0);
+if ($v6) {
+$fb(118);
+} else {
+const $v7 = $p1.shipping;
+const $v8 = ($v7 === 0);
+if ($v8) {
+$fb(119);
+} else {
+const $v9 = $p1.freeShippingProgress;
+const $v10 = ($v9 + "%");
+switch ($scls($v10)) {
+case "S": {
+const $v11 = $p0.items;
+const $v12 = $v11.length;
+const $v13 = formatMoney($v0, $rC1);
+const $v14 = $p1.subtotal;
+const $v15 = formatMoney($v14, $rC1);
+const $v16 = formatMoney($v3, $rC1);
+const $v17 = formatMoney($v7, $rC1);
+const $v18 = $p1.tax;
+const $v19 = formatMoney($v18, $rC1);
+const $v20 = $p1.grandTotal;
+const $v21 = formatMoney($v20, $rC1);
+const $v22 = $p0.notesOpen;
+const $v23 = Boolean($v22);
+const $v24 = $p0.freeShippingThreshold;
+const $v25 = formatMoney($v24, $rC1);
+const $v26 = ($v12 === 0);
+const $v27 = (("Add " + $v13) + " more for free shipping");
+$o += "<aside class=\"ns-summary\"" + ($v26 ? " data-empty=\"true\"" : " data-empty=\"false\"") + " aria-labelledby=\"ns-summary-title\"><h2 class=\"ns-summary-title\" id=\"ns-summary-title\">Order summary</h2><div class=\"ns-ship-meter\"><p>";
+$L = false;
+$te($e(("Add " + $v13)) + " more for free shipping");
+$o += "</p><span class=\"ns-ship-track\" aria-hidden=\"true\"><span class=\"ns-ship-fill\" style=\"width:" + $e(("" + $v10).trim()) + "\"></span></span></div><dl class=\"ns-summary-rows\"><dt>Subtotal (";
+$L = true;
+$tn($v1);
+$o += ($L ? "<!-- -->" : "") + " <!-- -->item<!-- -->)</dt><dd>";
+$L = false;
+$tn($v15);
+$o += "</dd><dt>Member discount</dt><dd class=\"ns-summary-credit\">";
+$L = false;
+$tn($v16);
+$o += "</dd><dt>Shipping</dt><dd>";
+$L = false;
+$tn($v17);
+$o += "</dd><dt>Estimated tax</dt><dd>";
+$L = false;
+$tn($v19);
+$o += "</dd><dt class=\"ns-summary-total-label\">Total</dt><dd class=\"ns-summary-total\">";
+$L = false;
+$tn($v21);
+$o += "</dd></dl>";
+$L = false;
+$T27_0(null);
+$o += "<p class=\"ns-summary-note\">Checkout is disabled in this demo store.</p><details class=\"ns-summary-terms\"" + ($v23 ? " open=\"\"" : "") + "><summary>Shipping &amp; trade terms</summary><p>Orders over ";
+$L = true;
+$tn($v25);
+$o += ($L ? "<!-- -->" : "") + " ship free. Trade accounts can pay on Net-30 terms.</p></details></aside>";
+$L = false;
+break;
+}
+default: $fb(122);
+}
+}
+}
+} else {
+const $v28 = $p1.credit;
+const $v29 = ($v28 !== 0);
+if ($v29) {
+$fb(123);
+} else {
+const $v30 = $p1.shipping;
+const $v31 = ($v30 === 0);
+if ($v31) {
+$fb(124);
+} else {
+const $v32 = $p1.freeShippingProgress;
+const $v33 = ($v32 + "%");
+switch ($scls($v33)) {
+case "S": {
+const $v34 = $p0.items;
+const $v35 = $v34.length;
+const $v36 = formatMoney($v0, $rC1);
+const $v37 = $p1.subtotal;
+const $v38 = formatMoney($v37, $rC1);
+const $v39 = formatMoney($v30, $rC1);
+const $v40 = $p1.tax;
+const $v41 = formatMoney($v40, $rC1);
+const $v42 = $p1.grandTotal;
+const $v43 = formatMoney($v42, $rC1);
+const $v44 = $p0.notesOpen;
+const $v45 = Boolean($v44);
+const $v46 = $p0.freeShippingThreshold;
+const $v47 = formatMoney($v46, $rC1);
+const $v48 = ($v35 === 0);
+const $v49 = (("Add " + $v36) + " more for free shipping");
+$o += "<aside class=\"ns-summary\"" + ($v48 ? " data-empty=\"true\"" : " data-empty=\"false\"") + " aria-labelledby=\"ns-summary-title\"><h2 class=\"ns-summary-title\" id=\"ns-summary-title\">Order summary</h2><div class=\"ns-ship-meter\"><p>";
+$L = false;
+$te($e(("Add " + $v36)) + " more for free shipping");
+$o += "</p><span class=\"ns-ship-track\" aria-hidden=\"true\"><span class=\"ns-ship-fill\" style=\"width:" + $e(("" + $v33).trim()) + "\"></span></span></div><dl class=\"ns-summary-rows\"><dt>Subtotal (";
+$L = true;
+$tn($v1);
+$o += ($L ? "<!-- -->" : "") + " <!-- -->item<!-- -->)</dt><dd>";
+$L = false;
+$tn($v38);
+$o += "</dd><dt>Shipping</dt><dd>";
+$L = false;
+$tn($v39);
+$o += "</dd><dt>Estimated tax</dt><dd>";
+$L = false;
+$tn($v41);
+$o += "</dd><dt class=\"ns-summary-total-label\">Total</dt><dd class=\"ns-summary-total\">";
+$L = false;
+$tn($v43);
+$o += "</dd></dl>";
+$L = false;
+$T27_0(null);
+$o += "<p class=\"ns-summary-note\">Checkout is disabled in this demo store.</p><details class=\"ns-summary-terms\"" + ($v45 ? " open=\"\"" : "") + "><summary>Shipping &amp; trade terms</summary><p>Orders over ";
+$L = true;
+$tn($v47);
+$o += ($L ? "<!-- -->" : "") + " ship free. Trade accounts can pay on Net-30 terms.</p></details></aside>";
+$L = false;
+break;
+}
+default: $fb(127);
+}
+}
+}
+}
+} else {
+const $v50 = $p1.memberDiscount;
+const $v51 = ($v50 !== 0);
+if ($v51) {
+const $v52 = $p1.credit;
+const $v53 = ($v52 !== 0);
+if ($v53) {
+$fb(128);
+} else {
+const $v54 = $p1.shipping;
+const $v55 = ($v54 === 0);
+if ($v55) {
+$fb(129);
+} else {
+const $v56 = $p1.freeShippingProgress;
+const $v57 = ($v56 + "%");
+switch ($scls($v57)) {
+case "S": {
+const $v58 = $p0.items;
+const $v59 = $v58.length;
+const $v60 = formatMoney($v0, $rC1);
+const $v61 = $p1.subtotal;
+const $v62 = formatMoney($v61, $rC1);
+const $v63 = formatMoney($v50, $rC1);
+const $v64 = formatMoney($v54, $rC1);
+const $v65 = $p1.tax;
+const $v66 = formatMoney($v65, $rC1);
+const $v67 = $p1.grandTotal;
+const $v68 = formatMoney($v67, $rC1);
+const $v69 = $p0.notesOpen;
+const $v70 = Boolean($v69);
+const $v71 = $p0.freeShippingThreshold;
+const $v72 = formatMoney($v71, $rC1);
+const $v73 = ($v59 === 0);
+const $v74 = (("Add " + $v60) + " more for free shipping");
+$o += "<aside class=\"ns-summary\"" + ($v73 ? " data-empty=\"true\"" : " data-empty=\"false\"") + " aria-labelledby=\"ns-summary-title\"><h2 class=\"ns-summary-title\" id=\"ns-summary-title\">Order summary</h2><div class=\"ns-ship-meter\"><p>";
+$L = false;
+$te($e(("Add " + $v60)) + " more for free shipping");
+$o += "</p><span class=\"ns-ship-track\" aria-hidden=\"true\"><span class=\"ns-ship-fill\" style=\"width:" + $e(("" + $v57).trim()) + "\"></span></span></div><dl class=\"ns-summary-rows\"><dt>Subtotal (";
+$L = true;
+$tn($v1);
+$o += ($L ? "<!-- -->" : "") + " <!-- -->items<!-- -->)</dt><dd>";
+$L = false;
+$tn($v62);
+$o += "</dd><dt>Member discount</dt><dd class=\"ns-summary-credit\">";
+$L = false;
+$tn($v63);
+$o += "</dd><dt>Shipping</dt><dd>";
+$L = false;
+$tn($v64);
+$o += "</dd><dt>Estimated tax</dt><dd>";
+$L = false;
+$tn($v66);
+$o += "</dd><dt class=\"ns-summary-total-label\">Total</dt><dd class=\"ns-summary-total\">";
+$L = false;
+$tn($v68);
+$o += "</dd></dl>";
+$L = false;
+$T27_0(null);
+$o += "<p class=\"ns-summary-note\">Checkout is disabled in this demo store.</p><details class=\"ns-summary-terms\"" + ($v70 ? " open=\"\"" : "") + "><summary>Shipping &amp; trade terms</summary><p>Orders over ";
+$L = true;
+$tn($v72);
+$o += ($L ? "<!-- -->" : "") + " ship free. Trade accounts can pay on Net-30 terms.</p></details></aside>";
+$L = false;
+break;
+}
+default: $fb(132);
+}
+}
+}
+} else {
+const $v75 = $p1.credit;
+const $v76 = ($v75 !== 0);
+if ($v76) {
+$fb(133);
+} else {
+const $v77 = $p1.shipping;
+const $v78 = ($v77 === 0);
+if ($v78) {
+$fb(134);
+} else {
+const $v79 = $p1.freeShippingProgress;
+const $v80 = ($v79 + "%");
+switch ($scls($v80)) {
+case "S": {
+const $v81 = $p0.items;
+const $v82 = $v81.length;
+const $v83 = formatMoney($v0, $rC1);
+const $v84 = $p1.subtotal;
+const $v85 = formatMoney($v84, $rC1);
+const $v86 = formatMoney($v77, $rC1);
+const $v87 = $p1.tax;
+const $v88 = formatMoney($v87, $rC1);
+const $v89 = $p1.grandTotal;
+const $v90 = formatMoney($v89, $rC1);
+const $v91 = $p0.notesOpen;
+const $v92 = Boolean($v91);
+const $v93 = $p0.freeShippingThreshold;
+const $v94 = formatMoney($v93, $rC1);
+const $v95 = ($v82 === 0);
+const $v96 = (("Add " + $v83) + " more for free shipping");
+$o += "<aside class=\"ns-summary\"" + ($v95 ? " data-empty=\"true\"" : " data-empty=\"false\"") + " aria-labelledby=\"ns-summary-title\"><h2 class=\"ns-summary-title\" id=\"ns-summary-title\">Order summary</h2><div class=\"ns-ship-meter\"><p>";
+$L = false;
+$te($e(("Add " + $v83)) + " more for free shipping");
+$o += "</p><span class=\"ns-ship-track\" aria-hidden=\"true\"><span class=\"ns-ship-fill\" style=\"width:" + $e(("" + $v80).trim()) + "\"></span></span></div><dl class=\"ns-summary-rows\"><dt>Subtotal (";
+$L = true;
+$tn($v1);
+$o += ($L ? "<!-- -->" : "") + " <!-- -->items<!-- -->)</dt><dd>";
+$L = false;
+$tn($v85);
+$o += "</dd><dt>Shipping</dt><dd>";
+$L = false;
+$tn($v86);
+$o += "</dd><dt>Estimated tax</dt><dd>";
+$L = false;
+$tn($v88);
+$o += "</dd><dt class=\"ns-summary-total-label\">Total</dt><dd class=\"ns-summary-total\">";
+$L = false;
+$tn($v90);
+$o += "</dd></dl>";
+$L = false;
+$T27_0(null);
+$o += "<p class=\"ns-summary-note\">Checkout is disabled in this demo store.</p><details class=\"ns-summary-terms\"" + ($v92 ? " open=\"\"" : "") + "><summary>Shipping &amp; trade terms</summary><p>Orders over ";
+$L = true;
+$tn($v94);
+$o += ($L ? "<!-- -->" : "") + " ship free. Trade accounts can pay on Net-30 terms.</p></details></aside>";
+$L = false;
+break;
+}
+default: $fb(137);
+}
+}
+}
+}
+}
+} else {
+const $v97 = $p1.unitCount;
+const $v98 = ($v97 === 1);
+if ($v98) {
+$fb(138);
+} else {
+const $v99 = $p1.memberDiscount;
+const $v100 = ($v99 !== 0);
+if ($v100) {
+const $v101 = $p1.credit;
+const $v102 = ($v101 !== 0);
+if ($v102) {
+const $v103 = $p1.shipping;
+const $v104 = ($v103 === 0);
+if ($v104) {
+const $v105 = $p1.freeShippingProgress;
+const $v106 = ($v105 + "%");
+switch ($scls($v106)) {
+case "S": {
+const $v107 = $p0.items;
+const $v108 = $v107.length;
+const $v109 = $p1.subtotal;
+const $v110 = formatMoney($v109, $rC1);
+const $v111 = formatMoney($v99, $rC1);
+const $v112 = formatMoney($v101, $rC1);
+const $v113 = $p1.tax;
+const $v114 = formatMoney($v113, $rC1);
+const $v115 = $p1.grandTotal;
+const $v116 = formatMoney($v115, $rC1);
+const $v117 = $p0.notesOpen;
+const $v118 = Boolean($v117);
+const $v119 = $p0.freeShippingThreshold;
+const $v120 = formatMoney($v119, $rC1);
+const $v121 = ($v108 === 0);
+$o += "<aside class=\"ns-summary\"" + ($v121 ? " data-empty=\"true\"" : " data-empty=\"false\"") + " aria-labelledby=\"ns-summary-title\"><h2 class=\"ns-summary-title\" id=\"ns-summary-title\">Order summary</h2><div class=\"ns-ship-meter\"><p>Your order ships free</p><span class=\"ns-ship-track\" aria-hidden=\"true\"><span class=\"ns-ship-fill\" style=\"width:" + $e(("" + $v106).trim()) + "\"></span></span></div><dl class=\"ns-summary-rows\"><dt>Subtotal (";
+$L = true;
+$tn($v97);
+$o += ($L ? "<!-- -->" : "") + " <!-- -->items<!-- -->)</dt><dd>";
+$L = false;
+$tn($v110);
+$o += "</dd><dt>Member discount</dt><dd class=\"ns-summary-credit\">";
+$L = false;
+$tn($v111);
+$o += "</dd><dt>Account credit</dt><dd class=\"ns-summary-credit\">";
+$L = false;
+$tn($v112);
+$o += "</dd><dt>Shipping</dt><dd>Free</dd><dt>Estimated tax</dt><dd>";
+$L = false;
+$tn($v114);
+$o += "</dd><dt class=\"ns-summary-total-label\">Total</dt><dd class=\"ns-summary-total\">";
+$L = false;
+$tn($v116);
+$o += "</dd></dl>";
+$L = false;
+$T27_0(null);
+$o += "<p class=\"ns-summary-note\">Checkout is disabled in this demo store.</p><details class=\"ns-summary-terms\"" + ($v118 ? " open=\"\"" : "") + "><summary>Shipping &amp; trade terms</summary><p>Orders over ";
+$L = true;
+$tn($v120);
+$o += ($L ? "<!-- -->" : "") + " ship free. Trade accounts can pay on Net-30 terms.</p></details></aside>";
+$L = false;
+break;
+}
+default: $fb(141);
+}
+} else {
+$fb(142);
+}
+} else {
+const $v122 = $p1.shipping;
+const $v123 = ($v122 === 0);
+if ($v123) {
+const $v124 = $p1.freeShippingProgress;
+const $v125 = ($v124 + "%");
+switch ($scls($v125)) {
+case "S": {
+const $v126 = $p0.items;
+const $v127 = $v126.length;
+const $v128 = $p1.subtotal;
+const $v129 = formatMoney($v128, $rC1);
+const $v130 = formatMoney($v99, $rC1);
+const $v131 = $p1.tax;
+const $v132 = formatMoney($v131, $rC1);
+const $v133 = $p1.grandTotal;
+const $v134 = formatMoney($v133, $rC1);
+const $v135 = $p0.notesOpen;
+const $v136 = Boolean($v135);
+const $v137 = $p0.freeShippingThreshold;
+const $v138 = formatMoney($v137, $rC1);
+const $v139 = ($v127 === 0);
+$o += "<aside class=\"ns-summary\"" + ($v139 ? " data-empty=\"true\"" : " data-empty=\"false\"") + " aria-labelledby=\"ns-summary-title\"><h2 class=\"ns-summary-title\" id=\"ns-summary-title\">Order summary</h2><div class=\"ns-ship-meter\"><p>Your order ships free</p><span class=\"ns-ship-track\" aria-hidden=\"true\"><span class=\"ns-ship-fill\" style=\"width:" + $e(("" + $v125).trim()) + "\"></span></span></div><dl class=\"ns-summary-rows\"><dt>Subtotal (";
+$L = true;
+$tn($v97);
+$o += ($L ? "<!-- -->" : "") + " <!-- -->items<!-- -->)</dt><dd>";
+$L = false;
+$tn($v129);
+$o += "</dd><dt>Member discount</dt><dd class=\"ns-summary-credit\">";
+$L = false;
+$tn($v130);
+$o += "</dd><dt>Shipping</dt><dd>Free</dd><dt>Estimated tax</dt><dd>";
+$L = false;
+$tn($v132);
+$o += "</dd><dt class=\"ns-summary-total-label\">Total</dt><dd class=\"ns-summary-total\">";
+$L = false;
+$tn($v134);
+$o += "</dd></dl>";
+$L = false;
+$T27_0(null);
+$o += "<p class=\"ns-summary-note\">Checkout is disabled in this demo store.</p><details class=\"ns-summary-terms\"" + ($v136 ? " open=\"\"" : "") + "><summary>Shipping &amp; trade terms</summary><p>Orders over ";
+$L = true;
+$tn($v138);
+$o += ($L ? "<!-- -->" : "") + " ship free. Trade accounts can pay on Net-30 terms.</p></details></aside>";
+$L = false;
+break;
+}
+default: $fb(145);
+}
+} else {
+$fb(146);
+}
+}
+} else {
+const $v140 = $p1.credit;
+const $v141 = ($v140 !== 0);
+if ($v141) {
+$fb(147);
+} else {
+const $v142 = $p1.shipping;
+const $v143 = ($v142 === 0);
+if ($v143) {
+const $v144 = $p1.freeShippingProgress;
+const $v145 = ($v144 + "%");
+switch ($scls($v145)) {
+case "S": {
+const $v146 = $p0.items;
+const $v147 = $v146.length;
+const $v148 = $p1.subtotal;
+const $v149 = formatMoney($v148, $rC1);
+const $v150 = $p1.tax;
+const $v151 = formatMoney($v150, $rC1);
+const $v152 = $p1.grandTotal;
+const $v153 = formatMoney($v152, $rC1);
+const $v154 = $p0.notesOpen;
+const $v155 = Boolean($v154);
+const $v156 = $p0.freeShippingThreshold;
+const $v157 = formatMoney($v156, $rC1);
+const $v158 = ($v147 === 0);
+$o += "<aside class=\"ns-summary\"" + ($v158 ? " data-empty=\"true\"" : " data-empty=\"false\"") + " aria-labelledby=\"ns-summary-title\"><h2 class=\"ns-summary-title\" id=\"ns-summary-title\">Order summary</h2><div class=\"ns-ship-meter\"><p>Your order ships free</p><span class=\"ns-ship-track\" aria-hidden=\"true\"><span class=\"ns-ship-fill\" style=\"width:" + $e(("" + $v145).trim()) + "\"></span></span></div><dl class=\"ns-summary-rows\"><dt>Subtotal (";
+$L = true;
+$tn($v97);
+$o += ($L ? "<!-- -->" : "") + " <!-- -->items<!-- -->)</dt><dd>";
+$L = false;
+$tn($v149);
+$o += "</dd><dt>Shipping</dt><dd>Free</dd><dt>Estimated tax</dt><dd>";
+$L = false;
+$tn($v151);
+$o += "</dd><dt class=\"ns-summary-total-label\">Total</dt><dd class=\"ns-summary-total\">";
+$L = false;
+$tn($v153);
+$o += "</dd></dl>";
+$L = false;
+$T27_0(null);
+$o += "<p class=\"ns-summary-note\">Checkout is disabled in this demo store.</p><details class=\"ns-summary-terms\"" + ($v155 ? " open=\"\"" : "") + "><summary>Shipping &amp; trade terms</summary><p>Orders over ";
+$L = true;
+$tn($v157);
+$o += ($L ? "<!-- -->" : "") + " ship free. Trade accounts can pay on Net-30 terms.</p></details></aside>";
+$L = false;
+break;
+}
+default: $fb(150);
+}
+} else {
+$fb(151);
+}
+}
+}
+}
+}
+}
+function $T29($p0, $p1, $tc) {
+const $rC2 = $ctx[2];
+const $v0 = $p0.items;
+const $v1 = $v0.length;
+if (($v1 === 0)) {
+const $v2 = $rC2.base;
+$o += "<div class=\"ns-cart-page ns-container\"><header class=\"ns-page-head\"><h1 class=\"ns-page-title\">Your cart</h1></header><div class=\"ns-empty\" role=\"status\"><div class=\"ns-empty-art\" aria-hidden=\"true\"></div><h2 class=\"ns-empty-title\">Your cart is empty</h2><p class=\"ns-empty-desc\">Add tools from the catalog and they will show up here.</p><div class=\"ns-empty-actions\"><a class=\"ns-btn ns-btn-primary\" href=\"" + $e(($v2 + "/shop")) + "\">Browse products</a></div></div></div>";
+$L = false;
+} else {
+const $tc3 = $push($tc, 2, 1);
+const $tc4 = $push($tc3, 2, 0);
+$o += "<div class=\"ns-cart-page ns-container\"><header class=\"ns-page-head\"><h1 class=\"ns-page-title\">Your cart</h1></header><div class=\"ns-cart-layout\"><ul class=\"ns-cart-list\" aria-label=\"Items in your cart\">";
+$L = false;
+const $a5 = $v0;
+if (!Array.isArray($a5)) $fb(153);
+const $n5 = $a5.length;
+for (let $i5 = 0; $i5 < $n5; $i5++) $B30($a5[$i5], $i5, $a5, $push($tc4, $n5, $i5));
+$o += "</ul>";
+$L = false;
+$T28($p0, $p1, null);
+$o += "</div></div>";
+$L = false;
+}
+}
+function $T31($p0, $tc) {
+const $rC1 = $ctx[1];
+const $rC2 = $ctx[2];
+$o += "<ul class=\"ns-tiles\">";
+$L = false;
+const $a0 = $p0;
+if (!Array.isArray($a0)) $fb(154);
+const $n0 = $a0.length;
+const $b0_0 = $rC2;
+const $b0_1 = $rC1;
+for (let $i0 = 0; $i0 < $n0; $i0++) $B32($a0[$i0], $i0, $a0, $b0_0, $b0_1, null);
+$o += "</ul>";
+$L = false;
+}
+function $T36($p0, $p1, $p2, $p3, $tc) {
+const $rC2 = $ctx[2];
+const $rI0 = $id($tc, 0);
+const $v0 = ($p1 > 0);
+if ($v0) {
+if ($p3) {
+const $v1 = $rC2.base;
+const $v2 = $rC2.current;
+const $v3 = ($v1 + "/cart/add");
+const $v4 = (!$v0);
+const $v5 = ({"data-add-sku": $p0, "aria-label": ("Add to cart: " + $p2)});
+$o += "<form class=\"ns-add ns-add-full\" method=\"post\" action=\"" + $e($v3) + "\"><input type=\"hidden\" name=\"sku\"" + $at($p0, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 156) + "/><input type=\"hidden\" name=\"back\"" + $at($v2, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 157) + "/><div class=\"ns-qty\"><label for=\"" + $rI0 + "\">Qty</label><input id=\"" + $rI0 + "\" type=\"number\" name=\"qty\" min=\"1\" max=\"99\"" + ($v4 ? " disabled=\"\"" : "") + " inputMode=\"numeric\" value=\"1\"/></div>";
+$L = false;
+$T27_1($v4, $v5, null);
+$o += "</form>";
+$L = false;
+} else {
+const $v6 = $rC2.base;
+const $v7 = $rC2.current;
+const $v8 = ($v6 + "/cart/add");
+const $v9 = (!$v0);
+const $v10 = ({"data-add-sku": $p0, "aria-label": ("Add to cart: " + $p2)});
+$o += "<form class=\"ns-add\" method=\"post\" action=\"" + $e($v8) + "\"><input type=\"hidden\" name=\"sku\"" + $at($p0, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 162) + "/><input type=\"hidden\" name=\"back\"" + $at($v7, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 163) + "/>";
+$L = false;
+$T27_2($v9, $v10, null);
+$o += "</form>";
+$L = false;
+}
+} else {
+if ($p3) {
+const $v11 = $rC2.base;
+const $v12 = $rC2.current;
+const $v13 = ($v11 + "/cart/add");
+const $v14 = (!$v0);
+const $v15 = ({"data-add-sku": $p0, "aria-label": ("Out of stock: " + $p2)});
+$o += "<form class=\"ns-add ns-add-full\" method=\"post\" action=\"" + $e($v13) + "\"><input type=\"hidden\" name=\"sku\"" + $at($p0, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 165) + "/><input type=\"hidden\" name=\"back\"" + $at($v12, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 166) + "/><div class=\"ns-qty\"><label for=\"" + $rI0 + "\">Qty</label><input id=\"" + $rI0 + "\" type=\"number\" name=\"qty\" min=\"1\" max=\"99\"" + ($v14 ? " disabled=\"\"" : "") + " inputMode=\"numeric\" value=\"1\"/></div>";
+$L = false;
+$T27_3($v14, $v15, null);
+$o += "</form>";
+$L = false;
+} else {
+const $v16 = $rC2.base;
+const $v17 = $rC2.current;
+const $v18 = ($v16 + "/cart/add");
+const $v19 = (!$v0);
+const $v20 = ({"data-add-sku": $p0, "aria-label": ("Out of stock: " + $p2)});
+$o += "<form class=\"ns-add\" method=\"post\" action=\"" + $e($v18) + "\"><input type=\"hidden\" name=\"sku\"" + $at($p0, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 171) + "/><input type=\"hidden\" name=\"back\"" + $at($v17, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 172) + "/>";
+$L = false;
+$T27_4($v19, $v20, null);
+$o += "</form>";
+$L = false;
+}
+}
+}
+function $T37($p0, $p1, $p2, $p3, $tc) {
+const $rC1 = $ctx[1];
+const $v0 = ((typeof $p1) === "number");
+if ($v0) {
+if (($p1 > $p2)) {
+const $v1 = ($p1 > 0);
+if ($v1) {
+if ($p0) {
+const $v2 = ($p2 === 0);
+if ($v2) {
+$fb(173);
+} else {
+const $v3 = ((typeof $p3) === "number");
+if ($v3) {
+const $v4 = ($p3 !== 0);
+if ($v4) {
+const $v5 = Math.round(((($p1 - $p2) / $p1) * 100));
+const $v6 = formatMoney($p2, $rC1);
+const $v7 = formatMoney($p1, $rC1);
+const $v8 = formatMoney($p3, $rC1);
+$o += "<div class=\"ns-price-block ns-price-large\"" + ($v1 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$L = false;
+$tn($v6);
+$o += "</span><del class=\"ns-price-orig\"><span class=\"ns-sr-only\">Was </span>";
+$L = false;
+$tn($v7);
+$o += "</del><span class=\"ns-price-save\">−";
+$L = true;
+$te(("" + $v5));
+$o += ($L ? "<!-- -->" : "") + "%</span><span class=\"ns-price-rebate\">";
+$L = false;
+$tn($v8);
+$o += ($L ? "<!-- -->" : "") + " mail-in rebate</span></div>";
+$L = false;
+} else {
+$fb(175);
+}
+} else {
+const $v9 = Math.round(((($p1 - $p2) / $p1) * 100));
+const $v10 = formatMoney($p2, $rC1);
+const $v11 = formatMoney($p1, $rC1);
+$o += "<div class=\"ns-price-block ns-price-large\"" + ($v1 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
 $L = false;
 $tn($v10);
-$o += "</del><span class=\"ns-price-save\">Save ";
+$o += "</span><del class=\"ns-price-orig\"><span class=\"ns-sr-only\">Was </span>";
+$L = false;
+$tn($v11);
+$o += "</del><span class=\"ns-price-save\">−";
 $L = true;
-$te(("" + $v8));
+$te(("" + $v9));
 $o += ($L ? "<!-- -->" : "") + "%</span></div>";
 $L = false;
 }
-} else {
-$fb(94);
 }
 } else {
-$fb(95);
-}
-} else {
-const $v11 = ((typeof $p2) === "number");
-if ($v11) {
-const $v12 = ($p2 !== 0);
+const $v12 = ($p2 === 0);
 if ($v12) {
-const $v13 = formatMoney($p1, $rC1);
-const $v14 = formatMoney($p2, $rC1);
-$o += "<div class=\"ns-price-block\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$fb(177);
+} else {
+const $v13 = ((typeof $p3) === "number");
+if ($v13) {
+const $v14 = ($p3 !== 0);
+if ($v14) {
+const $v15 = Math.round(((($p1 - $p2) / $p1) * 100));
+const $v16 = formatMoney($p2, $rC1);
+const $v17 = formatMoney($p1, $rC1);
+const $v18 = formatMoney($p3, $rC1);
+$o += "<div class=\"ns-price-block\"" + ($v1 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
 $L = false;
-$tn($v13);
-$o += "</span><span class=\"ns-price-rebate\">Rebate: ";
+$tn($v16);
+$o += "</span><del class=\"ns-price-orig\"><span class=\"ns-sr-only\">Was </span>";
+$L = false;
+$tn($v17);
+$o += "</del><span class=\"ns-price-save\">−";
 $L = true;
-$tn($v14);
-$o += "</span></div>";
+$te(("" + $v15));
+$o += ($L ? "<!-- -->" : "") + "%</span><span class=\"ns-price-rebate\">";
+$L = false;
+$tn($v18);
+$o += ($L ? "<!-- -->" : "") + " mail-in rebate</span></div>";
 $L = false;
 } else {
-$fb(97);
+$fb(179);
 }
 } else {
-const $v15 = formatMoney($p1, $rC1);
+const $v19 = Math.round(((($p1 - $p2) / $p1) * 100));
+const $v20 = formatMoney($p2, $rC1);
+const $v21 = formatMoney($p1, $rC1);
+$o += "<div class=\"ns-price-block\"" + ($v1 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$L = false;
+$tn($v20);
+$o += "</span><del class=\"ns-price-orig\"><span class=\"ns-sr-only\">Was </span>";
+$L = false;
+$tn($v21);
+$o += "</del><span class=\"ns-price-save\">−";
+$L = true;
+$te(("" + $v19));
+$o += ($L ? "<!-- -->" : "") + "%</span></div>";
+$L = false;
+}
+}
+}
+} else {
+$fb(181);
+}
+} else {
+$fb(182);
+}
+} else {
+if ($p0) {
+const $v22 = ($p2 === 0);
+if ($v22) {
+const $v23 = ((typeof $p3) === "number");
+if ($v23) {
+$fb(183);
+} else {
+$o += "<div class=\"ns-price-block ns-price-large\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">Free</span></div>";
+$L = false;
+}
+} else {
+const $v24 = ((typeof $p3) === "number");
+if ($v24) {
+const $v25 = ($p3 !== 0);
+if ($v25) {
+const $v26 = formatMoney($p2, $rC1);
+const $v27 = formatMoney($p3, $rC1);
+$o += "<div class=\"ns-price-block ns-price-large\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$L = false;
+$tn($v26);
+$o += "</span><span class=\"ns-price-rebate\">";
+$L = false;
+$tn($v27);
+$o += ($L ? "<!-- -->" : "") + " mail-in rebate</span></div>";
+$L = false;
+} else {
+$fb(186);
+}
+} else {
+const $v28 = formatMoney($p2, $rC1);
+$o += "<div class=\"ns-price-block ns-price-large\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$L = false;
+$tn($v28);
+$o += "</span></div>";
+$L = false;
+}
+}
+} else {
+const $v29 = ($p2 === 0);
+if ($v29) {
+const $v30 = ((typeof $p3) === "number");
+if ($v30) {
+const $v31 = ($p3 !== 0);
+if ($v31) {
+const $v32 = formatMoney($p3, $rC1);
+$o += "<div class=\"ns-price-block\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">Free</span><span class=\"ns-price-rebate\">";
+$L = false;
+$tn($v32);
+$o += ($L ? "<!-- -->" : "") + " mail-in rebate</span></div>";
+$L = false;
+} else {
+$fb(189);
+}
+} else {
+$o += "<div class=\"ns-price-block\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">Free</span></div>";
+$L = false;
+}
+} else {
+const $v33 = ((typeof $p3) === "number");
+if ($v33) {
+const $v34 = ($p3 !== 0);
+if ($v34) {
+const $v35 = formatMoney($p2, $rC1);
+const $v36 = formatMoney($p3, $rC1);
 $o += "<div class=\"ns-price-block\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
 $L = false;
-$tn($v15);
+$tn($v35);
+$o += "</span><span class=\"ns-price-rebate\">";
+$L = false;
+$tn($v36);
+$o += ($L ? "<!-- -->" : "") + " mail-in rebate</span></div>";
+$L = false;
+} else {
+$fb(192);
+}
+} else {
+const $v37 = formatMoney($p2, $rC1);
+$o += "<div class=\"ns-price-block\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$L = false;
+$tn($v37);
 $o += "</span></div>";
 $L = false;
 }
 }
 }
-function $T37($p0, $p1, $tc) {
+}
+}
+function $T38($p0, $p1, $tc) {
 if (($p1 <= 0)) {
-$o += "<span class=\"ns-stock ns-stock-out\" data-stock-state=\"out\">Out of stock</span>";
+$o += "<p class=\"ns-stock ns-stock-out\" data-stock-state=\"out\">Out of stock</p>";
 $L = false;
 } else {
 if (($p1 <= 5)) {
-$o += "<span class=\"ns-stock ns-stock-low\" data-stock-state=\"low\">Only ";
+const $v0 = ((typeof $p0) === "number");
+if ($v0) {
+const $v1 = formatShortDate($p0);
+$o += "<p class=\"ns-stock ns-stock-low\" data-stock-state=\"low\">Only ";
 $L = true;
 $tn($p1);
-$o += ($L ? "<!-- -->" : "") + " left</span>";
-$L = false;
-} else {
-if (((typeof $p0) === "number")) {
-const $v0 = formatDateUTC($p0, false);
-$o += "<span class=\"ns-stock ns-stock-in\" data-stock-state=\"in\">In stock";
+const $v2 = (" · Ships " + $v1);
+$o += ($L ? "<!-- -->" : "") + " left";
 $L = true;
-$te($e((" · Ships " + $v0)));
-$o += "</span>";
+$te($e($v2));
+$o += "</p>";
 $L = false;
 } else {
-$o += "<span class=\"ns-stock ns-stock-in\" data-stock-state=\"in\">In stock</span>";
-$L = false;
-}
-}
-}
-}
-function $T38($p0, $tc) {
-if ((!$p0)) {
-
-} else {
-const $v0 = $p0.blurb;
-if ($v0) {
-const $v1 = $p0.sku;
-const $v2 = $p0.headline;
-const $v3 = $p0.endsAtSec;
-const $v4 = formatDateUTC($v3, true);
-const $v5 = $p0.price;
-const $v6 = $p0.originalPrice;
-const $v7 = $p0.stock;
-$o += "<section class=\"ns-spotlight\"" + $at($v1, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 99) + "><div class=\"ns-spotlight-body\"><span class=\"ns-spotlight-kicker\">Deal of the Day</span><h2 class=\"ns-spotlight-title\">";
-$L = false;
-$tn($v2);
-$o += "</h2><p class=\"ns-spotlight-blurb\">";
-$L = false;
-$tn($v0);
-$o += "</p><p class=\"ns-spotlight-ends\">Ends ";
+$o += "<p class=\"ns-stock ns-stock-low\" data-stock-state=\"low\">Only ";
 $L = true;
-$tn($v4);
-$o += "</p></div><div class=\"ns-spotlight-aside\">";
+$tn($p1);
+$o += ($L ? "<!-- -->" : "") + " left</p>";
 $L = false;
-$T36_0($v6, $v5, null);
-$T37_0($v7, null);
-const $v8 = ($v7 <= 0);
-const $v9 = ({"data-spotlight-sku": $v1});
-$T7_1($v8, $v9, null);
-$o += "</div></section>";
+}
+} else {
+const $v3 = ((typeof $p0) === "number");
+if ($v3) {
+const $v4 = formatShortDate($p0);
+const $v5 = (" · Ships " + $v4);
+$o += "<p class=\"ns-stock ns-stock-in\" data-stock-state=\"in\">In stock";
+$L = true;
+$te($e($v5));
+$o += "</p>";
 $L = false;
 } else {
-const $v10 = $p0.sku;
-const $v11 = $p0.headline;
-const $v12 = $p0.endsAtSec;
-const $v13 = formatDateUTC($v12, true);
-const $v14 = $p0.price;
-const $v15 = $p0.originalPrice;
-const $v16 = $p0.stock;
-$o += "<section class=\"ns-spotlight\"" + $at($v10, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 100) + "><div class=\"ns-spotlight-body\"><span class=\"ns-spotlight-kicker\">Deal of the Day</span><h2 class=\"ns-spotlight-title\">";
+$o += "<p class=\"ns-stock ns-stock-in\" data-stock-state=\"in\">In stock</p>";
 $L = false;
-$tn($v11);
-$o += "</h2><p class=\"ns-spotlight-ends\">Ends ";
-$L = true;
-$tn($v13);
-$o += "</p></div><div class=\"ns-spotlight-aside\">";
-$L = false;
-$T36_0($v15, $v14, null);
-$T37_0($v16, null);
-const $v17 = ($v16 <= 0);
-const $v18 = ({"data-spotlight-sku": $v10});
-$T7_1($v17, $v18, null);
-$o += "</div></section>";
-$L = false;
+}
 }
 }
 }
 function $T39($p0, $tc) {
-if ($p0) {
-$o += "<div class=\"ns-empty\" role=\"status\"" + $at($p0, " data-query=\"", "\"", " data-query=\"true\"", " data-query=\"false\"", "", 101) + "><h3 class=\"ns-empty-title\">No matching products found</h3><p class=\"ns-empty-desc\">";
+const $rC2 = $ctx[2];
+if ((!$p0)) {
+
+} else {
+const $v0 = $p0.category;
+if ($v0) {
+const $v1 = $p0.blurb;
+if ($v1) {
+const $v2 = $p0.sku;
+const $v3 = $rC2.base;
+const $v4 = $p0.headline;
+const $v5 = $p0.price;
+const $v6 = $p0.originalPrice;
+const $v7 = $p0.stock;
+const $v8 = $p0.endsAtSec;
+const $v9 = formatShortDate($v8);
+$o += "<section class=\"ns-spotlight\"" + $at($v2, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 194) + " aria-labelledby=\"ns-spotlight-title\"><div class=\"ns-spotlight-media\">";
 $L = false;
-$te($e(("No hardware matched \"" + $p0)) + "&quot;. Try clearing filters.");
+$T25_2($v0, null);
+const $tc10 = $push($tc, 2, 1);
+const $v11 = (($v3 + "/p/") + $v2);
+$o += "<span class=\"ns-badge ns-badge-sale\">Deal of the week</span></div><div class=\"ns-spotlight-body\"><h2 class=\"ns-spotlight-title\" id=\"ns-spotlight-title\"><a href=\"" + $e($v11) + "\">";
+$L = false;
+$tn($v4);
+$o += "</a></h2><p class=\"ns-spotlight-blurb\">";
+$L = false;
+$tn($v1);
 $o += "</p>";
 $L = false;
-$T7_2(null);
-$o += "</div>";
+$T37_0($v6, $v5, null);
+$T38_0($v7, null);
+$o += "<p class=\"ns-spotlight-ends\">Offer ends ";
+$L = true;
+$tn($v9);
+const $tc12 = $push($tc10, 6, 5);
+$o += "</p>";
+$L = false;
+$T36_0($v2, $v7, $v4, $tc12);
+$o += "</div></section>";
 $L = false;
 } else {
-$o += "<div class=\"ns-empty\" role=\"status\"" + $at($p0, " data-query=\"", "\"", " data-query=\"true\"", " data-query=\"false\"", "", 102) + "><h3 class=\"ns-empty-title\">No matching products found</h3><p class=\"ns-empty-desc\">This category currently has 0 items available.</p>";
+const $v13 = $p0.sku;
+const $v14 = $rC2.base;
+const $v15 = $p0.headline;
+const $v16 = $p0.price;
+const $v17 = $p0.originalPrice;
+const $v18 = $p0.stock;
+const $v19 = $p0.endsAtSec;
+const $v20 = formatShortDate($v19);
+$o += "<section class=\"ns-spotlight\"" + $at($v13, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 196) + " aria-labelledby=\"ns-spotlight-title\"><div class=\"ns-spotlight-media\">";
 $L = false;
-$T7_2(null);
-$o += "</div>";
+$T25_2($v0, null);
+const $tc21 = $push($tc, 2, 1);
+const $v22 = (($v14 + "/p/") + $v13);
+$o += "<span class=\"ns-badge ns-badge-sale\">Deal of the week</span></div><div class=\"ns-spotlight-body\"><h2 class=\"ns-spotlight-title\" id=\"ns-spotlight-title\"><a href=\"" + $e($v22) + "\">";
+$L = false;
+$tn($v15);
+$o += "</a></h2>";
+$L = false;
+$T37_0($v17, $v16, null);
+$T38_0($v18, null);
+$o += "<p class=\"ns-spotlight-ends\">Offer ends ";
+$L = true;
+$tn($v20);
+const $tc23 = $push($tc21, 6, 5);
+$o += "</p>";
+$L = false;
+$T36_0($v13, $v18, $v15, $tc23);
+$o += "</div></section>";
 $L = false;
 }
+} else {
+$fb(198);
+}
+}
+}
+function $T40($p0, $tc) {
+const $rC1 = $ctx[1];
+const $v0 = formatMoney($p0, $rC1);
+$o += "<ul class=\"ns-values\"><li>";
+$L = false;
+$T8_6(null);
+$o += "<strong>Free shipping over ";
+$L = true;
+$tn($v0);
+$o += "</strong><span>Same-day dispatch on orders placed by 3 pm.</span></li><li>";
+$L = false;
+$T8_7(null);
+$o += "<strong>Net-30 trade accounts</strong><span>Invoice billing and tax-exempt purchasing.</span></li><li>";
+$L = false;
+$T8_8(null);
+$o += "<strong>2-year warranty</strong><span>Lifetime coverage on hand tools.</span></li><li>";
+$L = false;
+$T8_9(null);
+$o += "<strong>Calibration certificates</strong><span>Included with every measuring instrument.</span></li></ul>";
+$L = false;
 }
 function $T41($p0, $tc) {
 const $v0 = ((typeof $p0.originalPrice) === "number");
@@ -1963,174 +3363,118 @@ const $v5 = $p0.originalPrice;
 const $v6 = $p0.price;
 const $v7 = ($v5 > $v6);
 if ((!$v7)) {
-$fb(103);
+$fb(199);
 } else {
-if ($v1) {
-$fb(104);
+if ($v3) {
+$fb(200);
 } else {
 if ($v7) {
-if ($v3) {
-$fb(105);
+if ($v1) {
+$fb(201);
 } else {
 $o += "<div class=\"ns-badges\"><span class=\"ns-badge ns-badge-sale\">Sale</span></div>";
 $L = false;
 }
 } else {
-$fb(106);
+$fb(202);
 }
 }
 }
 } else {
+if ($v3) {
 if ($v1) {
-$fb(107);
+$fb(203);
 } else {
 const $v8 = $p0.originalPrice;
 const $v9 = $p0.price;
-const $v10 = ($v8 > $v9);
-if ($v10) {
-if ($v3) {
-$o += "<div class=\"ns-badges\"><span class=\"ns-badge ns-badge-sale\">Sale</span><span class=\"ns-badge ns-badge-clearance\">Clearance</span></div>";
+$o += "<div class=\"ns-badges\"><span class=\"ns-badge ns-badge-clearance\">Clearance</span></div>";
 $L = false;
-} else {
-$fb(108);
 }
 } else {
-$fb(109);
-}
+$fb(204);
 }
 }
 } else {
+const $v10 = $p0.clearance;
+if ($v10) {
 if ($v1) {
 const $v11 = $p0.originalPrice;
 const $v12 = $p0.price;
-const $v13 = ($v11 > $v12);
-if ($v13) {
-const $v14 = $p0.clearance;
-if ($v14) {
-$o += "<div class=\"ns-badges\"><span class=\"ns-badge ns-badge-featured\">Featured</span><span class=\"ns-badge ns-badge-sale\">Sale</span><span class=\"ns-badge ns-badge-clearance\">Clearance</span></div>";
+$o += "<div class=\"ns-badges\"><span class=\"ns-badge ns-badge-clearance\">Clearance</span><span class=\"ns-badge ns-badge-featured\">Best seller</span></div>";
 $L = false;
 } else {
-$o += "<div class=\"ns-badges\"><span class=\"ns-badge ns-badge-featured\">Featured</span><span class=\"ns-badge ns-badge-sale\">Sale</span></div>";
-$L = false;
+$fb(205);
 }
 } else {
-$fb(110);
-}
-} else {
-$fb(111);
-}
-}
-} else {
-const $v15 = $p0.featured;
-const $v16 = (!$v15);
-if ($v16) {
-const $v17 = $p0.clearance;
-const $v18 = (!$v17);
-if ($v18) {
-if ((!$v0)) {
-const $v19 = $p0.originalPrice;
-} else {
-$fb(112);
-}
-} else {
+const $v13 = $p0.originalPrice;
+const $v14 = $p0.price;
+const $v15 = ($v13 > $v14);
 if ($v15) {
-$fb(113);
+if ($v1) {
+$o += "<div class=\"ns-badges\"><span class=\"ns-badge ns-badge-sale\">Sale</span><span class=\"ns-badge ns-badge-featured\">Best seller</span></div>";
+$L = false;
 } else {
+$fb(206);
+}
+} else {
+$fb(207);
+}
+}
+}
+} else {
+const $v16 = $p0.featured;
+const $v17 = (!$v16);
 if ($v17) {
+const $v18 = $p0.clearance;
+const $v19 = (!$v18);
+if ($v19) {
+if ((!$v0)) {
 const $v20 = $p0.originalPrice;
+} else {
+$fb(208);
+}
+} else {
+if ($v18) {
+if ($v16) {
+$fb(209);
+} else {
+const $v21 = $p0.originalPrice;
 $o += "<div class=\"ns-badges\"><span class=\"ns-badge ns-badge-clearance\">Clearance</span></div>";
 $L = false;
-} else {
-$fb(114);
-}
-}
 }
 } else {
-if ($v15) {
-const $v21 = $p0.clearance;
-if ($v21) {
-const $v22 = $p0.originalPrice;
-$o += "<div class=\"ns-badges\"><span class=\"ns-badge ns-badge-featured\">Featured</span><span class=\"ns-badge ns-badge-clearance\">Clearance</span></div>";
-$L = false;
+$fb(210);
+}
+}
 } else {
+const $v22 = $p0.clearance;
+if ($v22) {
+if ($v16) {
 const $v23 = $p0.originalPrice;
-$o += "<div class=\"ns-badges\"><span class=\"ns-badge ns-badge-featured\">Featured</span></div>";
-$L = false;
-}
-} else {
-$fb(115);
-}
-}
-}
-}
-function $T42($p0, $tc) {
-if ((!$p0)) {
-
-} else {
-const $v0 = $p0.verified;
-if ($v0) {
-const $v1 = Boolean($v0);
-const $v2 = $p0.body;
-const $v3 = $p0.author;
-const $v4 = $p0.createdAtSec;
-const $v5 = formatDateUTC($v4, false);
-$o += "<blockquote class=\"ns-review\"" + ($v1 ? " data-verified=\"true\"" : " data-verified=\"false\"") + "><p class=\"ns-review-body\">“";
-$L = true;
-$tn($v2);
-$o += ($L ? "<!-- -->" : "") + "”</p><footer class=\"ns-review-meta\"><span class=\"ns-review-author\">";
-$L = false;
-$tn($v3);
-$o += "</span><span class=\"ns-review-badge\">Verified Buyer</span><time class=\"ns-review-date\">";
-$L = false;
-$tn($v5);
-$o += "</time></footer></blockquote>";
+$o += "<div class=\"ns-badges\"><span class=\"ns-badge ns-badge-clearance\">Clearance</span><span class=\"ns-badge ns-badge-featured\">Best seller</span></div>";
 $L = false;
 } else {
-const $v6 = Boolean($v0);
-const $v7 = $p0.body;
-const $v8 = $p0.author;
-const $v9 = $p0.createdAtSec;
-const $v10 = formatDateUTC($v9, false);
-$o += "<blockquote class=\"ns-review\"" + ($v6 ? " data-verified=\"true\"" : " data-verified=\"false\"") + "><p class=\"ns-review-body\">“";
-$L = true;
-$tn($v7);
-$o += ($L ? "<!-- -->" : "") + "”</p><footer class=\"ns-review-meta\"><span class=\"ns-review-author\">";
-$L = false;
-$tn($v8);
-$o += "</span><time class=\"ns-review-date\">";
-$L = false;
-$tn($v10);
-$o += "</time></footer></blockquote>";
-$L = false;
+$fb(211);
 }
-}
-}
-function $T43($p0, $tc) {
-if ((!$p0)) {
-
 } else {
-const $v0 = $p0.length;
-if (($v0 === 0)) {
-$fb(118);
+if ($v16) {
+const $v24 = $p0.originalPrice;
+$o += "<div class=\"ns-badges\"><span class=\"ns-badge ns-badge-featured\">Best seller</span></div>";
+$L = false;
 } else {
-$o += "<dl class=\"ns-specs\">";
-$L = false;
-const $a1 = $p0;
-if (!Array.isArray($a1)) $fb(119);
-const $n1 = $a1.length;
-for (let $i1 = 0; $i1 < $n1; $i1++) $B44($a1[$i1], $i1, $a1, null);
-$o += "</dl>";
-$L = false;
+$fb(212);
 }
 }
 }
-function $T45($p0, $p1, $tc) {
+}
+}
+function $T42($p0, $p1, $tc) {
 const $rC1 = $ctx[1];
 if (($p0 < 0)) {
-$fb(120);
+$fb(213);
 } else {
 if (($p0 > 5)) {
-$fb(121);
+$fb(214);
 } else {
 if (($p1 > 0)) {
 const $v0 = Math.round((($p0 / 5) * 100));
@@ -2140,18 +3484,18 @@ case "S": {
 const $v2 = $p0.toFixed(1);
 const $v3 = $rC1.groupSep;
 const $v4 = formatInt($p1, $v3);
-const $v5 = (("Rated " + $v2) + " out of 5");
-$o += "<div class=\"ns-rating\" aria-label=\"" + $e(("Rated " + $v2)) + " out of 5\"><span class=\"ns-rating-track\" aria-hidden=\"true\"><span class=\"ns-rating-fill\" style=\"width:" + $e(("" + $v1).trim()) + ";opacity:1\"></span></span><span class=\"ns-rating-num\">";
+const $v5 = (((("Rated " + $v2) + " out of 5, ") + $v4) + " reviews");
+$o += "<div class=\"ns-rating\" role=\"img\" aria-label=\"" + $e(((("Rated " + $v2) + " out of 5, ") + $v4)) + " reviews\"><span class=\"ns-rating-track\" aria-hidden=\"true\"><span class=\"ns-rating-fill\" style=\"width:" + $e(("" + $v1).trim()) + ";opacity:1\"></span></span><span class=\"ns-rating-num\" aria-hidden=\"true\">";
 $L = false;
 $tn($v2);
-$o += "</span><span class=\"ns-rating-count\">(";
+$o += "</span><span class=\"ns-rating-count\" aria-hidden=\"true\">(";
 $L = true;
 $tn($v4);
 $o += ($L ? "<!-- -->" : "") + ")</span></div>";
 $L = false;
 break;
 }
-default: $fb(123);
+default: $fb(216);
 }
 } else {
 const $v6 = Math.round((($p0 / 5) * 100));
@@ -2161,947 +3505,2584 @@ case "S": {
 const $v8 = $p0.toFixed(1);
 const $v9 = $rC1.groupSep;
 const $v10 = formatInt($p1, $v9);
-const $v11 = (("Rated " + $v8) + " out of 5");
-$o += "<div class=\"ns-rating\" aria-label=\"" + $e(("Rated " + $v8)) + " out of 5\"><span class=\"ns-rating-track\" aria-hidden=\"true\"><span class=\"ns-rating-fill\" style=\"width:" + $e(("" + $v7).trim()) + ";opacity:0.35\"></span></span><span class=\"ns-rating-num\">";
+const $v11 = (((("Rated " + $v8) + " out of 5, ") + $v10) + " reviews");
+$o += "<div class=\"ns-rating\" role=\"img\" aria-label=\"" + $e(((("Rated " + $v8) + " out of 5, ") + $v10)) + " reviews\"><span class=\"ns-rating-track\" aria-hidden=\"true\"><span class=\"ns-rating-fill\" style=\"width:" + $e(("" + $v7).trim()) + ";opacity:0.35\"></span></span><span class=\"ns-rating-num\" aria-hidden=\"true\">";
 $L = false;
 $tn($v8);
-$o += "</span><span class=\"ns-rating-count\">(";
+$o += "</span><span class=\"ns-rating-count\" aria-hidden=\"true\">(";
 $L = true;
 $tn($v10);
 $o += ($L ? "<!-- -->" : "") + ")</span></div>";
 $L = false;
 break;
 }
-default: $fb(125);
+default: $fb(218);
 }
 }
 }
 }
 }
-function $T46($p0, $p1, $tc) {
-const $rC0 = $ctx[0];
+function $T43($p0, $p1, $tc) {
+const $rC2 = $ctx[2];
 const $v0 = $p1.stock;
-const $v1 = ($v0 > 0);
-if ($v1) {
-const $v2 = $p1.featured;
-if ($v2) {
-const $v3 = getThemePalette($rC0);
-const $v4 = $v3.accent;
-switch ($scls($v4)) {
-case "S": {
-switch ($scls0($p0)) {
-case "M": {
-const $v5 = $p1.sku;
-const $v6 = $p1.category;
-const $v7 = Boolean($v2);
-const $v8 = $p1.title;
-const $v9 = (!$v1);
-const $v10 = $tab4[($v7 ? 1 : 0) | ($v9 ? 2 : 0)];
-const $v11 = $p1.brand;
-const $v12 = $p1.rating;
-const $v13 = $p1.reviewCount;
-const $v14 = $p1.specs;
-const $v15 = $p1.price;
-const $v16 = $p1.originalPrice;
-const $v17 = $p1.rebateAmount;
-const $v18 = $p1.shipsAtSec;
-const $v19 = $p1.topReview;
-const $x20 = $es($v5);
-$o += "<article" + ($x20 !== null ? " data-sku=\"" + $x20 + "\"" : $at($v5, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 126)) + $at($v6, " data-category=\"", "\"", " data-category=\"true\"", " data-category=\"false\"", "", 127) + ($v1 ? " data-in-stock=\"true\"" : " data-in-stock=\"false\"") + ($v7 ? " data-featured=\"true\"" : " data-featured=\"false\"") + " itemscope=\"\" class=\"" + $v10 + "\" style=\"border-color:" + $e(("" + $v4).trim()) + ";order:" + ("" + $p0) + "\">";
-$L = false;
-$T41($p1, null);
-$o += "<div class=\"ns-card-head\"><span class=\"ns-card-brand\">";
-$L = false;
-$tn($v11);
-$o += "</span><span class=\"ns-card-sku\">#";
-$L = true;
-if ($x20 !== null) $te($x20); else $tn($v5);
-const $v21 = ("/p/" + $v5);
-const $x22 = $es($v8);
-$o += "</span></div><h3 class=\"ns-card-title\"><a href=\"" + $e($v21) + "\"" + ($x22 !== null ? " title=\"" + $x22 + "\"" : $at($v8, " title=\"", "\"", "", "", "", 132)) + ">";
-$L = false;
-if ($x22 !== null) $te($x22); else $tn($v8);
-$o += "</a></h3>";
-$L = false;
-$T45($v12, $v13, null);
-$T43($v14, null);
-$T36($v16, $v15, $v17, null);
-$o += "<div class=\"ns-card-footer\">";
-$L = false;
-$T37($v18, $v0, null);
-const $v23 = ({"data-add-sku": $v5, "aria-label": ("Add to cart: " + $v8)});
-$T7_3($v9, $v23, null);
-$o += "</div>";
-$L = false;
-$T42($v19, null);
-$o += "</article>";
-$L = false;
-break;
-}
-default: $fb(133);
-}
-break;
-}
-default: $fb(134);
-}
-} else {
-switch ($scls0($p0)) {
-case "M": {
-const $v24 = getThemePalette($rC0);
-const $v25 = $p1.sku;
-const $v26 = $p1.category;
-const $v27 = Boolean($v2);
-const $v28 = $p1.title;
-const $v29 = (!$v1);
-const $v30 = $tab4[($v27 ? 1 : 0) | ($v29 ? 2 : 0)];
-const $v31 = $p1.brand;
-const $v32 = $p1.rating;
-const $v33 = $p1.reviewCount;
-const $v34 = $p1.specs;
-const $v35 = $p1.price;
-const $v36 = $p1.originalPrice;
-const $v37 = $p1.rebateAmount;
-const $v38 = $p1.shipsAtSec;
-const $v39 = $p1.topReview;
-const $x40 = $es($v25);
-$o += "<article" + ($x40 !== null ? " data-sku=\"" + $x40 + "\"" : $at($v25, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 135)) + $at($v26, " data-category=\"", "\"", " data-category=\"true\"", " data-category=\"false\"", "", 136) + ($v1 ? " data-in-stock=\"true\"" : " data-in-stock=\"false\"") + ($v27 ? " data-featured=\"true\"" : " data-featured=\"false\"") + " itemscope=\"\" class=\"" + $v30 + "\" style=\"order:" + ("" + $p0) + "\">";
-$L = false;
-$T41($p1, null);
-$o += "<div class=\"ns-card-head\"><span class=\"ns-card-brand\">";
-$L = false;
-$tn($v31);
-$o += "</span><span class=\"ns-card-sku\">#";
-$L = true;
-if ($x40 !== null) $te($x40); else $tn($v25);
-const $v41 = ("/p/" + $v25);
-const $x42 = $es($v28);
-$o += "</span></div><h3 class=\"ns-card-title\"><a href=\"" + $e($v41) + "\"" + ($x42 !== null ? " title=\"" + $x42 + "\"" : $at($v28, " title=\"", "\"", "", "", "", 141)) + ">";
-$L = false;
-if ($x42 !== null) $te($x42); else $tn($v28);
-$o += "</a></h3>";
-$L = false;
-$T45($v32, $v33, null);
-$T43($v34, null);
-$T36($v36, $v35, $v37, null);
-$o += "<div class=\"ns-card-footer\">";
-$L = false;
-$T37($v38, $v0, null);
-const $v43 = ({"data-add-sku": $v25, "aria-label": ("Add to cart: " + $v28)});
-$T7_3($v29, $v43, null);
-$o += "</div>";
-$L = false;
-$T42($v39, null);
-$o += "</article>";
-$L = false;
-break;
-}
-default: $fb(142);
-}
-}
-} else {
-const $v44 = $p1.featured;
-if ($v44) {
-const $v45 = getThemePalette($rC0);
-const $v46 = $v45.accent;
-switch ($scls($v46)) {
-case "S": {
-switch ($scls0($p0)) {
-case "M": {
-const $v47 = $p1.sku;
-const $v48 = $p1.category;
-const $v49 = Boolean($v44);
-const $v50 = $p1.title;
-const $v51 = (!$v1);
-const $v52 = $tab4[($v49 ? 1 : 0) | ($v51 ? 2 : 0)];
-const $v53 = $p1.brand;
-const $v54 = $p1.rating;
-const $v55 = $p1.reviewCount;
-const $v56 = $p1.specs;
-const $v57 = $p1.price;
-const $v58 = $p1.originalPrice;
-const $v59 = $p1.rebateAmount;
-const $v60 = $p1.shipsAtSec;
-const $v61 = $p1.topReview;
-const $x62 = $es($v47);
-$o += "<article" + ($x62 !== null ? " data-sku=\"" + $x62 + "\"" : $at($v47, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 143)) + $at($v48, " data-category=\"", "\"", " data-category=\"true\"", " data-category=\"false\"", "", 144) + ($v1 ? " data-in-stock=\"true\"" : " data-in-stock=\"false\"") + ($v49 ? " data-featured=\"true\"" : " data-featured=\"false\"") + " itemscope=\"\" class=\"" + $v52 + "\" style=\"border-color:" + $e(("" + $v46).trim()) + ";order:" + ("" + $p0) + "\">";
-$L = false;
-$T41($p1, null);
-$o += "<div class=\"ns-card-head\"><span class=\"ns-card-brand\">";
-$L = false;
-$tn($v53);
-$o += "</span><span class=\"ns-card-sku\">#";
-$L = true;
-if ($x62 !== null) $te($x62); else $tn($v47);
-const $v63 = ("/p/" + $v47);
-const $x64 = $es($v50);
-$o += "</span></div><h3 class=\"ns-card-title\"><a href=\"" + $e($v63) + "\"" + ($x64 !== null ? " title=\"" + $x64 + "\"" : $at($v50, " title=\"", "\"", "", "", "", 149)) + ">";
-$L = false;
-if ($x64 !== null) $te($x64); else $tn($v50);
-$o += "</a></h3>";
-$L = false;
-$T45($v54, $v55, null);
-$T43($v56, null);
-$T36($v58, $v57, $v59, null);
-$o += "<div class=\"ns-card-footer\">";
-$L = false;
-$T37($v60, $v0, null);
-const $v65 = ({"data-add-sku": $v47, "aria-label": ("Unavailable: " + $v50)});
-$T7_4($v51, $v65, null);
-$o += "</div>";
-$L = false;
-$T42($v61, null);
-$o += "</article>";
-$L = false;
-break;
-}
-default: $fb(150);
-}
-break;
-}
-default: $fb(151);
-}
-} else {
-switch ($scls0($p0)) {
-case "M": {
-const $v66 = getThemePalette($rC0);
-const $v67 = $p1.sku;
-const $v68 = $p1.category;
-const $v69 = Boolean($v44);
-const $v70 = $p1.title;
-const $v71 = (!$v1);
-const $v72 = $tab4[($v69 ? 1 : 0) | ($v71 ? 2 : 0)];
-const $v73 = $p1.brand;
-const $v74 = $p1.rating;
-const $v75 = $p1.reviewCount;
-const $v76 = $p1.specs;
-const $v77 = $p1.price;
-const $v78 = $p1.originalPrice;
-const $v79 = $p1.rebateAmount;
-const $v80 = $p1.shipsAtSec;
-const $v81 = $p1.topReview;
-const $x82 = $es($v67);
-$o += "<article" + ($x82 !== null ? " data-sku=\"" + $x82 + "\"" : $at($v67, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 152)) + $at($v68, " data-category=\"", "\"", " data-category=\"true\"", " data-category=\"false\"", "", 153) + ($v1 ? " data-in-stock=\"true\"" : " data-in-stock=\"false\"") + ($v69 ? " data-featured=\"true\"" : " data-featured=\"false\"") + " itemscope=\"\" class=\"" + $v72 + "\" style=\"order:" + ("" + $p0) + "\">";
-$L = false;
-$T41($p1, null);
-$o += "<div class=\"ns-card-head\"><span class=\"ns-card-brand\">";
-$L = false;
-$tn($v73);
-$o += "</span><span class=\"ns-card-sku\">#";
-$L = true;
-if ($x82 !== null) $te($x82); else $tn($v67);
-const $v83 = ("/p/" + $v67);
-const $x84 = $es($v70);
-$o += "</span></div><h3 class=\"ns-card-title\"><a href=\"" + $e($v83) + "\"" + ($x84 !== null ? " title=\"" + $x84 + "\"" : $at($v70, " title=\"", "\"", "", "", "", 158)) + ">";
-$L = false;
-if ($x84 !== null) $te($x84); else $tn($v70);
-$o += "</a></h3>";
-$L = false;
-$T45($v74, $v75, null);
-$T43($v76, null);
-$T36($v78, $v77, $v79, null);
-$o += "<div class=\"ns-card-footer\">";
-$L = false;
-$T37($v80, $v0, null);
-const $v85 = ({"data-add-sku": $v67, "aria-label": ("Unavailable: " + $v70)});
-$T7_4($v71, $v85, null);
-$o += "</div>";
-$L = false;
-$T42($v81, null);
-$o += "</article>";
-$L = false;
-break;
-}
-default: $fb(159);
-}
-}
-}
-}
-function $T47($p0, $p1, $tc) {
-const $v0 = $p0.length;
-if (($v0 === 0)) {
-$T39($p1, null);
-} else {
-$o += "<div class=\"ns-grid\"" + $at($v0, " data-count=\"", "\"", " data-count=\"true\"", " data-count=\"false\"", "", 160) + ">";
-$L = false;
-const $a1 = $p0;
-if (!Array.isArray($a1)) $fb(161);
-const $n1 = $a1.length;
-for (let $i1 = 0; $i1 < $n1; $i1++) $B48($a1[$i1], $i1, $a1, null);
-$o += "</div>";
-$L = false;
-}
-}
-function $T49($p0, $p1, $tc) {
-const $rC0 = $ctx[0];
-const $rC1 = $ctx[1];
-const $v0 = getThemePalette($rC0);
-const $v1 = $v0.bg;
-switch ($scls($v1)) {
-case "S": {
-const $v2 = $v0.fg;
-switch ($scls($v2)) {
-case "S": {
-const $v3 = $p0.compactMode;
+const $v1 = $p1.sku;
+const $v2 = $p1.category;
+const $v3 = $p1.featured;
 const $v4 = Boolean($v3);
-const $v5 = cx("ns-shell", ("ns-theme-" + $rC0), ({"ns-compact": $v4}));
-const $v6 = $rC1.code;
-const $v7 = $p0.requestId;
-const $v8 = $p0.promo;
-const $v9 = $p0.search;
-const $v10 = $p0.categories;
-const $v11 = $p0.breadcrumbs;
-const $v12 = $p0.filters;
-const $v13 = $v9.inStockOnly;
-const $v14 = $p0.spotlight;
-const $v15 = $p0.pagination;
-const $v16 = $v15.totalMatching;
-const $v17 = $v9.sortBy;
-const $v18 = $p0.products;
-const $v19 = $v9.query;
-const $v20 = $p0.cart;
-const $v21 = $p0.timestampSec;
-$o += "<div id=\"northstar-app\"" + $at($v5, " class=\"", "\"", "", "", "", 162) + $at($rC0, " data-theme=\"", "\"", " data-theme=\"true\"", " data-theme=\"false\"", "", 163) + $at($v6, " data-locale=\"", "\"", " data-locale=\"true\"", " data-locale=\"false\"", "", 164) + $at($v7, " data-request-id=\"", "\"", " data-request-id=\"true\"", " data-request-id=\"false\"", "", 165) + " style=\"background-color:" + $e(("" + $v1).trim()) + ";color:" + $e(("" + $v2).trim()) + ";min-height:100vh\">";
+const $v5 = ($v0 > 0);
+const $v6 = $tab5[($v4 ? 1 : 0) | ((!$v5) ? 2 : 0)];
+const $v7 = $p1.brand;
+const $v8 = $rC2.base;
+const $v9 = $p1.title;
+const $v10 = $p1.rating;
+const $v11 = $p1.reviewCount;
+const $v12 = $p1.price;
+const $v13 = $p1.originalPrice;
+const $v14 = $p1.rebateAmount;
+const $v15 = $p1.shipsAtSec;
+$o += "<article" + $at($v1, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 219) + $at($v2, " data-category=\"", "\"", " data-category=\"true\"", " data-category=\"false\"", "", 220) + ($v5 ? " data-in-stock=\"true\"" : " data-in-stock=\"false\"") + ($v4 ? " data-featured=\"true\"" : " data-featured=\"false\"") + " class=\"" + $v6 + "\"><div class=\"ns-card-media\">";
 $L = false;
-$T21($v8, null);
-const $tc22 = $push($tc, 5, 1);
-$T35($v10, $v9, $tc22);
-$T22($v11, null);
-const $tc23 = $push($tc, 5, 3);
-const $tc24 = $push($tc23, 3, 0);
-$o += "<div class=\"ns-layout\">";
-$L = false;
-$T19($v12, $v13, $tc24);
-const $tc25 = $push($tc23, 3, 1);
-$o += "<main class=\"ns-main\">";
-$L = false;
-$T38($v14, null);
-const $tc26 = $push($tc25, 4, 1);
-$T12($v17, $p1, $v16, $tc26);
-$T47($v18, $v19, null);
-$T13($v15, null);
-$o += "</main>";
-$L = false;
-$T9($v20, null);
-$o += "</div>";
-$L = false;
-$T26($v21, null);
-$o += "</div>";
-$L = false;
-break;
-}
-default: $fb(166);
-}
-break;
-}
-default: $fb(167);
-}
-}
-function $T50($p0, $tc) {
-const $v0 = $p0.products;
-const $v1 = $hy_mk51($p0)();
-const $v2 = $p0.theme;
-const $v3 = $p0.locale;
-const $v4 = $p0.user;
-const $s5 = $ctx[0];
-$ctx[0] = $v2;
-const $s6 = $ctx[1];
-$ctx[1] = $v3;
-const $s7 = $ctx[2];
-$ctx[2] = $v4;
-$T49($p0, $v1, $tc);
-$ctx[2] = $s7;
-$ctx[1] = $s6;
-$ctx[0] = $s5;
-}
-function $T7($p0, $p1, $p2, $p3, $p4, $p5, $p6, $tc) {
-if ($p6) {
-if ($p4) {
-if ($p5) {
-const $k0 = $okeys($p3);
-if (typeof $k0 !== "string" && $k0.length === 2 && $k0[0] === "data-action" && $k0[1] === "aria-label") {
-const $v1 = ("ns-btn-" + $p6);
-const $v2 = cx("ns-btn", $v1, ("ns-btn-" + $p4), $p1);
-const $v3 = Boolean($p2);
-const $v4 = $p3["data-action"];
-const $v5 = $p3["aria-label"];
-$o += "<button" + $at($v4, " data-action=\"", "\"", " data-action=\"true\"", " data-action=\"false\"", "", 168) + $at($v5, " aria-label=\"", "\"", " aria-label=\"true\"", " aria-label=\"false\"", "", 169) + $at($p5, " type=\"", "\"", "", "", "", 170) + $at($v2, " class=\"", "\"", "", "", "", 171) + ($v3 ? " disabled=\"\"" : "") + $at($p6, " data-variant=\"", "\"", " data-variant=\"true\"", " data-variant=\"false\"", "", 173) + ">";
-$L = false;
-$tn($p0);
-$o += "</button>";
-$L = false;
-} else { $fb(174); }
-} else {
-const $k6 = $okeys($p3);
-if (typeof $k6 !== "string" && $k6.length === 2 && $k6[0] === "data-add-sku" && $k6[1] === "aria-label") {
-const $v7 = ("ns-btn-" + $p6);
-const $v8 = cx("ns-btn", $v7, ("ns-btn-" + $p4), $p1);
-const $v9 = Boolean($p2);
-const $v10 = $p3["data-add-sku"];
-const $v11 = $p3["aria-label"];
-$o += "<button" + $at($v10, " data-add-sku=\"", "\"", " data-add-sku=\"true\"", " data-add-sku=\"false\"", "", 175) + $at($v11, " aria-label=\"", "\"", " aria-label=\"true\"", " aria-label=\"false\"", "", 176) + " type=\"button\"" + $at($v8, " class=\"", "\"", "", "", "", 177) + ($v9 ? " disabled=\"\"" : "") + $at($p6, " data-variant=\"", "\"", " data-variant=\"true\"", " data-variant=\"false\"", "", 179) + ">";
-$L = false;
-$tn($p0);
-$o += "</button>";
-$L = false;
-} else { $fb(180); }
-}
-} else {
-if ($p5) {
-$fb(181);
-} else {
-const $k12 = $okeys($p3);
-if ($k12 === "#nullish") {
-const $v13 = ("ns-btn-" + $p6);
-const $v14 = cx("ns-btn", $v13, $p4, $p1);
-const $v15 = Boolean($p2);
-$o += "<button type=\"button\"" + $at($v14, " class=\"", "\"", "", "", "", 182) + ($v15 ? " disabled=\"\"" : "") + $at($p6, " data-variant=\"", "\"", " data-variant=\"true\"", " data-variant=\"false\"", "", 184) + ">";
-$L = false;
-$tn($p0);
-$o += "</button>";
-$L = false;
-} else if (typeof $k12 !== "string" && $k12.length === 1 && $k12[0] === "data-spotlight-sku") {
-const $v16 = ("ns-btn-" + $p6);
-const $v17 = cx("ns-btn", $v16, $p4, $p1);
-const $v18 = Boolean($p2);
-const $v19 = $p3["data-spotlight-sku"];
-$o += "<button" + $at($v19, " data-spotlight-sku=\"", "\"", " data-spotlight-sku=\"true\"", " data-spotlight-sku=\"false\"", "", 185) + " type=\"button\"" + $at($v17, " class=\"", "\"", "", "", "", 186) + ($v18 ? " disabled=\"\"" : "") + $at($p6, " data-variant=\"", "\"", " data-variant=\"true\"", " data-variant=\"false\"", "", 188) + ">";
-$L = false;
-$tn($p0);
-$o += "</button>";
-$L = false;
-} else if (typeof $k12 !== "string" && $k12.length === 1 && $k12[0] === "data-action") {
-const $v20 = ("ns-btn-" + $p6);
-const $v21 = cx("ns-btn", $v20, $p4, $p1);
-const $v22 = Boolean($p2);
-const $v23 = $p3["data-action"];
-$o += "<button" + $at($v23, " data-action=\"", "\"", " data-action=\"true\"", " data-action=\"false\"", "", 189) + " type=\"button\"" + $at($v21, " class=\"", "\"", "", "", "", 190) + ($v22 ? " disabled=\"\"" : "") + $at($p6, " data-variant=\"", "\"", " data-variant=\"true\"", " data-variant=\"false\"", "", 192) + ">";
-$L = false;
-$tn($p0);
-$o += "</button>";
-$L = false;
-} else { $fb(193); }
-}
-}
-} else {
-$fb(194);
-}
-}
-function $T8($p0, $tc) {
-const $rC1 = $ctx[1];
-const $v0 = $p0.backordered;
-if ($v0) {
-const $v1 = $p0.qty;
-const $v2 = $p0.unitPrice;
-const $v3 = $p0.sku;
-const $v4 = $p0.title;
-const $v5 = formatMoney($v2, $rC1);
-const $v6 = formatMoney(($v1 * $v2), $rC1);
-$o += "<li class=\"ns-cart-item\"" + $at($v3, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 195) + "><div class=\"ns-cart-item-main\"><span class=\"ns-cart-item-title\">";
-$L = false;
-$tn($v4);
-$o += "</span><span class=\"ns-cart-backorder\">Backorder</span></div><div class=\"ns-cart-item-math\">";
-$L = false;
-$tn($v1);
-$o += ($L ? "<!-- -->" : "") + " × ";
-$L = true;
-$tn($v5);
-$o += ($L ? "<!-- -->" : "") + " =<!-- --> <strong>";
-$L = false;
-$tn($v6);
-$o += "</strong></div></li>";
-$L = false;
-} else {
-const $v7 = $p0.qty;
-const $v8 = $p0.unitPrice;
-const $v9 = $p0.sku;
-const $v10 = $p0.title;
-const $v11 = formatMoney($v8, $rC1);
-const $v12 = formatMoney(($v7 * $v8), $rC1);
-$o += "<li class=\"ns-cart-item\"" + $at($v9, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 196) + "><div class=\"ns-cart-item-main\"><span class=\"ns-cart-item-title\">";
-$L = false;
-$tn($v10);
-$o += "</span></div><div class=\"ns-cart-item-math\">";
+$T25_3($v2, ($p0 < 4), null);
+$T41($p1, null);
+$o += "</div><div class=\"ns-card-body\"><p class=\"ns-card-brand\">";
 $L = false;
 $tn($v7);
-$o += ($L ? "<!-- -->" : "") + " × ";
-$L = true;
-$tn($v11);
-$o += ($L ? "<!-- -->" : "") + " =<!-- --> <strong>";
+$o += "</p><h3 class=\"ns-card-title\"><a class=\"ns-card-link\" href=\"" + $e((($v8 + "/p/") + $v1)) + "\">";
+$L = false;
+$tn($v9);
+$o += "</a></h3>";
+$L = false;
+$T42($v10, $v11, null);
+$T37_1($v13, $v12, $v14, null);
+$T38($v15, $v0, null);
+const $tc16 = $push($tc, 3, 2);
+$o += "</div><div class=\"ns-card-actions\">";
+$L = false;
+$T36_0($v1, $v0, $v9, $tc16);
+$o += "</div></article>";
+$L = false;
+}
+function $T44($p0, $p1, $tc) {
+if ($p0) {
+const $v0 = $p1.length;
+$o += "<div class=\"ns-grid ns-grid-4\"" + $at($v0, " data-count=\"", "\"", " data-count=\"true\"", " data-count=\"false\"", "", 225) + ">";
+$L = false;
+const $a1 = $p1;
+if (!Array.isArray($a1)) $fb(226);
+const $n1 = $a1.length;
+for (let $i1 = 0; $i1 < $n1; $i1++) $B45($a1[$i1], $i1, $a1, $push($tc, $n1, $i1));
+$o += "</div>";
+$L = false;
+} else {
+const $v2 = $p1.length;
+$o += "<div class=\"ns-grid\"" + $at($v2, " data-count=\"", "\"", " data-count=\"true\"", " data-count=\"false\"", "", 227) + ">";
+$L = false;
+const $a3 = $p1;
+if (!Array.isArray($a3)) $fb(228);
+const $n3 = $a3.length;
+for (let $i3 = 0; $i3 < $n3; $i3++) $B45($a3[$i3], $i3, $a3, $push($tc, $n3, $i3));
+$o += "</div>";
+$L = false;
+}
+}
+function $T46($p0, $p1, $p2, $p3, $tc) {
+const $rC2 = $ctx[2];
+const $v0 = $rC2.base;
+const $v1 = $p2.spotlight;
+const $v2 = $p0.freeShippingThreshold;
+const $tc3 = $push($tc, 4, 0);
+const $v4 = ($v0 + "/shop");
+const $x5 = $e($v4);
+const $tc6 = $push($tc3, 2, 1);
+$o += "<div class=\"ns-home\"><section class=\"ns-hero ns-container\"><div class=\"ns-hero-copy\"><p class=\"ns-eyebrow\">Industrial supply for working shops</p><h1 class=\"ns-hero-title\">Professional tools, shipped next day.</h1><p class=\"ns-hero-lede\">Measuring instruments, hand and power tools, cutting tools and safety gear from brands that hold tolerance. Trade pricing for teams, no minimum order.</p><div class=\"ns-hero-actions\"><a class=\"ns-btn ns-btn-primary ns-btn-lg\" href=\"" + $x5 + "\">Shop all products</a><a class=\"ns-btn ns-btn-secondary ns-btn-lg\" href=\"" + $e(($v0 + "/signin")) + "\">Open a trade account</a></div></div>";
+$L = false;
+$T39($v1, $tc6);
+$o += "</section><section class=\"ns-section ns-container\" aria-labelledby=\"ns-cats-title\"><div class=\"ns-section-head\"><h2 class=\"ns-section-heading\" id=\"ns-cats-title\">Shop by category</h2></div>";
+$L = false;
+$T31($p1, null);
+const $tc7 = $push($tc, 4, 2);
+const $tc8 = $push($tc7, 2, 1);
+$o += "</section><section class=\"ns-section ns-container\" aria-labelledby=\"ns-featured-title\"><div class=\"ns-section-head\"><h2 class=\"ns-section-heading\" id=\"ns-featured-title\">Best sellers</h2><a class=\"ns-section-link\" href=\"" + $x5 + "\">View all products</a></div>";
+$L = false;
+$T44_0($p3, $tc8);
+$o += "</section><section class=\"ns-section ns-container\" aria-label=\"Why Northstar\">";
+$L = false;
+$T40($v2, null);
+$o += "</section></div>";
+$L = false;
+}
+function $T47($p0, $p1, $p2, $p3, $tc) {
+const $rC1 = $ctx[1];
+const $rC2 = $ctx[2];
+const $rI0 = $id($tc, 0);
+const $v0 = $p1.totalMatching;
+if (($v0 === 0)) {
+const $v1 = $p0.length;
+const $v2 = ($v1 > 0);
+if ($v2) {
+switch ($acls($rI0)) {
+case "v": {
+if ($p2 === "featured") {
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">0 products</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\" selected=\"\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div><ul class=\"ns-chips\" aria-label=\"Active filters\">";
+$L = false;
+const $a3 = $p0;
+if (!Array.isArray($a3)) $fb(233);
+const $n3 = $a3.length;
+const $b3_0 = $rC2;
+for (let $i3 = 0; $i3 < $n3; $i3++) $B48($a3[$i3], $i3, $a3, $b3_0, null);
+$o += "</ul></div>";
+$L = false;
+} else if ($p2 === "rating") {
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">0 products</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\" selected=\"\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div><ul class=\"ns-chips\" aria-label=\"Active filters\">";
+$L = false;
+const $a4 = $p0;
+if (!Array.isArray($a4)) $fb(235);
+const $n4 = $a4.length;
+const $b4_0 = $rC2;
+for (let $i4 = 0; $i4 < $n4; $i4++) $B48($a4[$i4], $i4, $a4, $b4_0, null);
+$o += "</ul></div>";
+$L = false;
+} else if ($p2 === "price-desc") {
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">0 products</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\" selected=\"\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div><ul class=\"ns-chips\" aria-label=\"Active filters\">";
+$L = false;
+const $a5 = $p0;
+if (!Array.isArray($a5)) $fb(237);
+const $n5 = $a5.length;
+const $b5_0 = $rC2;
+for (let $i5 = 0; $i5 < $n5; $i5++) $B48($a5[$i5], $i5, $a5, $b5_0, null);
+$o += "</ul></div>";
+$L = false;
+} else if ($p2 === "price-asc") {
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">0 products</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\" selected=\"\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div><ul class=\"ns-chips\" aria-label=\"Active filters\">";
+$L = false;
+const $a6 = $p0;
+if (!Array.isArray($a6)) $fb(239);
+const $n6 = $a6.length;
+const $b6_0 = $rC2;
+for (let $i6 = 0; $i6 < $n6; $i6++) $B48($a6[$i6], $i6, $a6, $b6_0, null);
+$o += "</ul></div>";
+$L = false;
+} else { $fb(240); }
+break;
+}
+default: $fb(241);
+}
+} else {
+switch ($acls($rI0)) {
+case "v": {
+if ($p2 === "featured") {
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">0 products</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\" selected=\"\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div></div>";
+$L = false;
+} else if ($p2 === "rating") {
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">0 products</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\" selected=\"\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div></div>";
+$L = false;
+} else if ($p2 === "price-asc") {
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">0 products</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\" selected=\"\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div></div>";
+$L = false;
+} else if ($p2 === "price-desc") {
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">0 products</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\" selected=\"\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div></div>";
+$L = false;
+} else { $fb(246); }
+break;
+}
+default: $fb(247);
+}
+}
+} else {
+const $v7 = $p3.onSaleCount;
+if (($v7 > 0)) {
+const $v8 = $p0.length;
+const $v9 = ($v8 > 0);
+if ($v9) {
+switch ($acls($rI0)) {
+case "v": {
+if ($p2 === "featured") {
+const $v10 = $p1.firstIndex;
+const $v11 = $rC1.groupSep;
+const $v12 = formatInt($v10, $v11);
+const $v13 = $p1.lastIndex;
+const $v14 = formatInt($v13, $v11);
+const $v15 = formatInt($v0, $v11);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
 $L = false;
 $tn($v12);
-$o += "</strong></div></li>";
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v14);
+$o += "</strong> <!-- -->of <strong>";
 $L = false;
+$tn($v15);
+const $v16 = ((" · " + $v7) + " on sale");
+$o += "</strong>";
+$L = false;
+$te($e((" · " + $v7)) + " on sale");
+$o += "</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\" selected=\"\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div><ul class=\"ns-chips\" aria-label=\"Active filters\">";
+$L = false;
+const $a17 = $p0;
+if (!Array.isArray($a17)) $fb(249);
+const $n17 = $a17.length;
+const $b17_0 = $rC2;
+for (let $i17 = 0; $i17 < $n17; $i17++) $B48($a17[$i17], $i17, $a17, $b17_0, null);
+$o += "</ul></div>";
+$L = false;
+} else if ($p2 === "price-desc") {
+const $v18 = $p1.firstIndex;
+const $v19 = $rC1.groupSep;
+const $v20 = formatInt($v18, $v19);
+const $v21 = $p1.lastIndex;
+const $v22 = formatInt($v21, $v19);
+const $v23 = formatInt($v0, $v19);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v20);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v22);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v23);
+const $v24 = ((" · " + $v7) + " on sale");
+$o += "</strong>";
+$L = false;
+$te($e((" · " + $v7)) + " on sale");
+$o += "</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\" selected=\"\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div><ul class=\"ns-chips\" aria-label=\"Active filters\">";
+$L = false;
+const $a25 = $p0;
+if (!Array.isArray($a25)) $fb(251);
+const $n25 = $a25.length;
+const $b25_0 = $rC2;
+for (let $i25 = 0; $i25 < $n25; $i25++) $B48($a25[$i25], $i25, $a25, $b25_0, null);
+$o += "</ul></div>";
+$L = false;
+} else if ($p2 === "rating") {
+const $v26 = $p1.firstIndex;
+const $v27 = $rC1.groupSep;
+const $v28 = formatInt($v26, $v27);
+const $v29 = $p1.lastIndex;
+const $v30 = formatInt($v29, $v27);
+const $v31 = formatInt($v0, $v27);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v28);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v30);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v31);
+const $v32 = ((" · " + $v7) + " on sale");
+$o += "</strong>";
+$L = false;
+$te($e((" · " + $v7)) + " on sale");
+$o += "</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\" selected=\"\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div><ul class=\"ns-chips\" aria-label=\"Active filters\">";
+$L = false;
+const $a33 = $p0;
+if (!Array.isArray($a33)) $fb(253);
+const $n33 = $a33.length;
+const $b33_0 = $rC2;
+for (let $i33 = 0; $i33 < $n33; $i33++) $B48($a33[$i33], $i33, $a33, $b33_0, null);
+$o += "</ul></div>";
+$L = false;
+} else if ($p2 === "price-asc") {
+const $v34 = $p1.firstIndex;
+const $v35 = $rC1.groupSep;
+const $v36 = formatInt($v34, $v35);
+const $v37 = $p1.lastIndex;
+const $v38 = formatInt($v37, $v35);
+const $v39 = formatInt($v0, $v35);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v36);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v38);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v39);
+const $v40 = ((" · " + $v7) + " on sale");
+$o += "</strong>";
+$L = false;
+$te($e((" · " + $v7)) + " on sale");
+$o += "</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\" selected=\"\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div><ul class=\"ns-chips\" aria-label=\"Active filters\">";
+$L = false;
+const $a41 = $p0;
+if (!Array.isArray($a41)) $fb(255);
+const $n41 = $a41.length;
+const $b41_0 = $rC2;
+for (let $i41 = 0; $i41 < $n41; $i41++) $B48($a41[$i41], $i41, $a41, $b41_0, null);
+$o += "</ul></div>";
+$L = false;
+} else { $fb(256); }
+break;
+}
+default: $fb(257);
+}
+} else {
+switch ($acls($rI0)) {
+case "v": {
+if ($p2 === "featured") {
+const $v42 = $p1.firstIndex;
+const $v43 = $rC1.groupSep;
+const $v44 = formatInt($v42, $v43);
+const $v45 = $p1.lastIndex;
+const $v46 = formatInt($v45, $v43);
+const $v47 = formatInt($v0, $v43);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v44);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v46);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v47);
+const $v48 = ((" · " + $v7) + " on sale");
+$o += "</strong>";
+$L = false;
+$te($e((" · " + $v7)) + " on sale");
+$o += "</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\" selected=\"\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div></div>";
+$L = false;
+} else if ($p2 === "rating") {
+const $v49 = $p1.firstIndex;
+const $v50 = $rC1.groupSep;
+const $v51 = formatInt($v49, $v50);
+const $v52 = $p1.lastIndex;
+const $v53 = formatInt($v52, $v50);
+const $v54 = formatInt($v0, $v50);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v51);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v53);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v54);
+const $v55 = ((" · " + $v7) + " on sale");
+$o += "</strong>";
+$L = false;
+$te($e((" · " + $v7)) + " on sale");
+$o += "</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\" selected=\"\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div></div>";
+$L = false;
+} else if ($p2 === "price-asc") {
+const $v56 = $p1.firstIndex;
+const $v57 = $rC1.groupSep;
+const $v58 = formatInt($v56, $v57);
+const $v59 = $p1.lastIndex;
+const $v60 = formatInt($v59, $v57);
+const $v61 = formatInt($v0, $v57);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v58);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v60);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v61);
+const $v62 = ((" · " + $v7) + " on sale");
+$o += "</strong>";
+$L = false;
+$te($e((" · " + $v7)) + " on sale");
+$o += "</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\" selected=\"\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div></div>";
+$L = false;
+} else if ($p2 === "price-desc") {
+const $v63 = $p1.firstIndex;
+const $v64 = $rC1.groupSep;
+const $v65 = formatInt($v63, $v64);
+const $v66 = $p1.lastIndex;
+const $v67 = formatInt($v66, $v64);
+const $v68 = formatInt($v0, $v64);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v65);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v67);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v68);
+const $v69 = ((" · " + $v7) + " on sale");
+$o += "</strong>";
+$L = false;
+$te($e((" · " + $v7)) + " on sale");
+$o += "</p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\" selected=\"\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div></div>";
+$L = false;
+} else { $fb(262); }
+break;
+}
+default: $fb(263);
+}
+}
+} else {
+const $v70 = $p0.length;
+const $v71 = ($v70 > 0);
+if ($v71) {
+switch ($acls($rI0)) {
+case "v": {
+if ($p2 === "featured") {
+const $v72 = $p1.firstIndex;
+const $v73 = $rC1.groupSep;
+const $v74 = formatInt($v72, $v73);
+const $v75 = $p1.lastIndex;
+const $v76 = formatInt($v75, $v73);
+const $v77 = formatInt($v0, $v73);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v74);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v76);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v77);
+$o += "</strong></p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\" selected=\"\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div><ul class=\"ns-chips\" aria-label=\"Active filters\">";
+$L = false;
+const $a78 = $p0;
+if (!Array.isArray($a78)) $fb(265);
+const $n78 = $a78.length;
+const $b78_0 = $rC2;
+for (let $i78 = 0; $i78 < $n78; $i78++) $B48($a78[$i78], $i78, $a78, $b78_0, null);
+$o += "</ul></div>";
+$L = false;
+} else if ($p2 === "price-desc") {
+const $v79 = $p1.firstIndex;
+const $v80 = $rC1.groupSep;
+const $v81 = formatInt($v79, $v80);
+const $v82 = $p1.lastIndex;
+const $v83 = formatInt($v82, $v80);
+const $v84 = formatInt($v0, $v80);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v81);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v83);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v84);
+$o += "</strong></p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\" selected=\"\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div><ul class=\"ns-chips\" aria-label=\"Active filters\">";
+$L = false;
+const $a85 = $p0;
+if (!Array.isArray($a85)) $fb(267);
+const $n85 = $a85.length;
+const $b85_0 = $rC2;
+for (let $i85 = 0; $i85 < $n85; $i85++) $B48($a85[$i85], $i85, $a85, $b85_0, null);
+$o += "</ul></div>";
+$L = false;
+} else if ($p2 === "price-asc") {
+const $v86 = $p1.firstIndex;
+const $v87 = $rC1.groupSep;
+const $v88 = formatInt($v86, $v87);
+const $v89 = $p1.lastIndex;
+const $v90 = formatInt($v89, $v87);
+const $v91 = formatInt($v0, $v87);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v88);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v90);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v91);
+$o += "</strong></p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\" selected=\"\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div><ul class=\"ns-chips\" aria-label=\"Active filters\">";
+$L = false;
+const $a92 = $p0;
+if (!Array.isArray($a92)) $fb(269);
+const $n92 = $a92.length;
+const $b92_0 = $rC2;
+for (let $i92 = 0; $i92 < $n92; $i92++) $B48($a92[$i92], $i92, $a92, $b92_0, null);
+$o += "</ul></div>";
+$L = false;
+} else if ($p2 === "rating") {
+const $v93 = $p1.firstIndex;
+const $v94 = $rC1.groupSep;
+const $v95 = formatInt($v93, $v94);
+const $v96 = $p1.lastIndex;
+const $v97 = formatInt($v96, $v94);
+const $v98 = formatInt($v0, $v94);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v95);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v97);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v98);
+$o += "</strong></p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\" selected=\"\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div><ul class=\"ns-chips\" aria-label=\"Active filters\">";
+$L = false;
+const $a99 = $p0;
+if (!Array.isArray($a99)) $fb(271);
+const $n99 = $a99.length;
+const $b99_0 = $rC2;
+for (let $i99 = 0; $i99 < $n99; $i99++) $B48($a99[$i99], $i99, $a99, $b99_0, null);
+$o += "</ul></div>";
+$L = false;
+} else { $fb(272); }
+break;
+}
+default: $fb(273);
+}
+} else {
+switch ($acls($rI0)) {
+case "v": {
+if ($p2 === "featured") {
+const $v100 = $p1.firstIndex;
+const $v101 = $rC1.groupSep;
+const $v102 = formatInt($v100, $v101);
+const $v103 = $p1.lastIndex;
+const $v104 = formatInt($v103, $v101);
+const $v105 = formatInt($v0, $v101);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v102);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v104);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v105);
+$o += "</strong></p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\" selected=\"\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div></div>";
+$L = false;
+} else if ($p2 === "rating") {
+const $v106 = $p1.firstIndex;
+const $v107 = $rC1.groupSep;
+const $v108 = formatInt($v106, $v107);
+const $v109 = $p1.lastIndex;
+const $v110 = formatInt($v109, $v107);
+const $v111 = formatInt($v0, $v107);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v108);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v110);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v111);
+$o += "</strong></p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\" selected=\"\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div></div>";
+$L = false;
+} else if ($p2 === "price-asc") {
+const $v112 = $p1.firstIndex;
+const $v113 = $rC1.groupSep;
+const $v114 = formatInt($v112, $v113);
+const $v115 = $p1.lastIndex;
+const $v116 = formatInt($v115, $v113);
+const $v117 = formatInt($v0, $v113);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v114);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v116);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v117);
+$o += "</strong></p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\" selected=\"\">Price: low to high</option><option value=\"price-desc\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div></div>";
+$L = false;
+} else if ($p2 === "price-desc") {
+const $v118 = $p1.firstIndex;
+const $v119 = $rC1.groupSep;
+const $v120 = formatInt($v118, $v119);
+const $v121 = $p1.lastIndex;
+const $v122 = formatInt($v121, $v119);
+const $v123 = formatInt($v0, $v119);
+$o += "<div class=\"ns-toolbar\"><p class=\"ns-toolbar-summary\">Showing<!-- --> <strong>";
+$L = false;
+$tn($v120);
+$o += ($L ? "<!-- -->" : "") + "–";
+$L = true;
+$tn($v122);
+$o += "</strong> <!-- -->of <strong>";
+$L = false;
+$tn($v123);
+$o += "</strong></p><div class=\"ns-toolbar-sort\"><label for=\"" + $rI0 + "\">Sort by</label><select id=\"" + $rI0 + "\" name=\"sort\" form=\"ns-filter-form\"><option value=\"featured\">Featured</option><option value=\"price-asc\">Price: low to high</option><option value=\"price-desc\" selected=\"\">Price: high to low</option><option value=\"rating\">Top rated</option></select><button type=\"submit\" form=\"ns-filter-form\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Sort</button></div></div>";
+$L = false;
+} else { $fb(278); }
+break;
+}
+default: $fb(279);
+}
+}
+}
+}
+}
+function $T49($p0, $tc) {
+const $rC1 = $ctx[1];
+const $rC2 = $ctx[2];
+if ((!$p0)) {
+$fb(280);
+} else {
+const $v0 = $p0.totalPages;
+if (($v0 <= 1)) {
+
+} else {
+const $v1 = $p0.showingAll;
+if ($v1) {
+const $v2 = $rC2.base;
+const $v3 = $p0.hrefPrefix;
+const $v4 = $p0.pageSize;
+const $v5 = ($v2 + $v3);
+$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\"><a class=\"ns-page-link ns-page-wide\" href=\"" + $e(($v5 + "1")) + "\">Show ";
+$L = true;
+$tn($v4);
+$o += ($L ? "<!-- -->" : "") + " per page</a></nav>";
+$L = false;
+} else {
+const $v6 = Math.min(($p0.currentPage - 2), ($v0 - 4));
+const $v7 = Math.max(1, $v6);
+const $v8 = Math.min($v0, ($v7 + 4));
+if (($v7 <= $v8)) {
+const $v9 = ((+$v7) + 1);
+if (($v9 <= $v8)) {
+const $v10 = ((+$v9) + 1);
+if (($v10 <= $v8)) {
+const $v11 = ((+$v10) + 1);
+if (($v11 <= $v8)) {
+const $v12 = ((+$v11) + 1);
+if (($v12 <= $v8)) {
+if ((((+$v12) + 1) <= $v8)) {
+$fb(282);
+} else {
+const $v13 = $p0.currentPage;
+const $v14 = ($v13 > 1);
+if ($v14) {
+const $v15 = ($v13 < $v0);
+if ($v15) {
+const $v16 = $rC2.base;
+const $v17 = $p0.hrefPrefix;
+const $v18 = $p0.totalMatching;
+const $v19 = $rC1.groupSep;
+const $v20 = formatInt($v18, $v19);
+const $v21 = ($v16 + $v17);
+const $v22 = ($v21 + ($v13 - 1));
+const $v24 = [$v7, $v9, $v10, $v11, $v12];
+$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\"><a class=\"ns-page-link ns-page-wide\"" + $at($v22, " href=\"", "\"", "", "", "", 283) + " rel=\"prev\">Previous</a>";
+$L = false;
+const $a23 = $v24;
+if (!Array.isArray($a23)) $fb(284);
+const $n23 = $a23.length;
+const $b23_0 = $p0;
+const $b23_1 = $v21;
+for (let $i23 = 0; $i23 < $n23; $i23++) $B50($a23[$i23], $i23, $a23, $b23_0, $b23_1, null);
+const $v25 = ($v21 + ($v13 + 1));
+const $v26 = ($v21 + "all");
+$o += "<a class=\"ns-page-link ns-page-wide\"" + $at($v25, " href=\"", "\"", "", "", "", 285) + " rel=\"next\">Next</a><a class=\"ns-page-all\" href=\"" + $e($v26) + "\">View all ";
+$L = true;
+$tn($v20);
+$o += "</a></nav>";
+$L = false;
+} else {
+const $v27 = $rC2.base;
+const $v28 = $p0.hrefPrefix;
+const $v29 = $p0.totalMatching;
+const $v30 = $rC1.groupSep;
+const $v31 = formatInt($v29, $v30);
+const $v32 = ($v27 + $v28);
+const $v33 = ($v32 + ($v13 - 1));
+const $v35 = [$v7, $v9, $v10, $v11, $v12];
+$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\"><a class=\"ns-page-link ns-page-wide\"" + $at($v33, " href=\"", "\"", "", "", "", 287) + " rel=\"prev\">Previous</a>";
+$L = false;
+const $a34 = $v35;
+if (!Array.isArray($a34)) $fb(288);
+const $n34 = $a34.length;
+const $b34_0 = $p0;
+const $b34_1 = $v32;
+for (let $i34 = 0; $i34 < $n34; $i34++) $B50($a34[$i34], $i34, $a34, $b34_0, $b34_1, null);
+const $v36 = ($v32 + "all");
+$o += "<span class=\"ns-page-link ns-page-wide is-disabled\">Next</span><a class=\"ns-page-all\" href=\"" + $e($v36) + "\">View all ";
+$L = true;
+$tn($v31);
+$o += "</a></nav>";
+$L = false;
+}
+} else {
+const $v37 = ($v13 < $v0);
+if ($v37) {
+const $v38 = $rC2.base;
+const $v39 = $p0.hrefPrefix;
+const $v40 = $p0.totalMatching;
+const $v41 = $rC1.groupSep;
+const $v42 = formatInt($v40, $v41);
+const $v44 = [$v7, $v9, $v10, $v11, $v12];
+const $v45 = ($v38 + $v39);
+$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\"><span class=\"ns-page-link ns-page-wide is-disabled\">Previous</span>";
+$L = false;
+const $a43 = $v44;
+if (!Array.isArray($a43)) $fb(290);
+const $n43 = $a43.length;
+const $b43_0 = $p0;
+const $b43_1 = $v45;
+for (let $i43 = 0; $i43 < $n43; $i43++) $B50($a43[$i43], $i43, $a43, $b43_0, $b43_1, null);
+const $v46 = ($v45 + ($v13 + 1));
+const $v47 = ($v45 + "all");
+$o += "<a class=\"ns-page-link ns-page-wide\"" + $at($v46, " href=\"", "\"", "", "", "", 291) + " rel=\"next\">Next</a><a class=\"ns-page-all\" href=\"" + $e($v47) + "\">View all ";
+$L = true;
+$tn($v42);
+$o += "</a></nav>";
+$L = false;
+} else {
+$fb(293);
+}
+}
+}
+} else {
+const $v48 = $p0.currentPage;
+const $v49 = ($v48 > 1);
+if ($v49) {
+const $v50 = ($v48 < $v0);
+if ($v50) {
+const $v51 = $rC2.base;
+const $v52 = $p0.hrefPrefix;
+const $v53 = $p0.totalMatching;
+const $v54 = $rC1.groupSep;
+const $v55 = formatInt($v53, $v54);
+const $v56 = ($v51 + $v52);
+const $v57 = ($v56 + ($v48 - 1));
+const $v59 = [$v7, $v9, $v10, $v11];
+$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\"><a class=\"ns-page-link ns-page-wide\"" + $at($v57, " href=\"", "\"", "", "", "", 294) + " rel=\"prev\">Previous</a>";
+$L = false;
+const $a58 = $v59;
+if (!Array.isArray($a58)) $fb(295);
+const $n58 = $a58.length;
+const $b58_0 = $p0;
+const $b58_1 = $v56;
+for (let $i58 = 0; $i58 < $n58; $i58++) $B50($a58[$i58], $i58, $a58, $b58_0, $b58_1, null);
+const $v60 = ($v56 + ($v48 + 1));
+const $v61 = ($v56 + "all");
+$o += "<a class=\"ns-page-link ns-page-wide\"" + $at($v60, " href=\"", "\"", "", "", "", 296) + " rel=\"next\">Next</a><a class=\"ns-page-all\" href=\"" + $e($v61) + "\">View all ";
+$L = true;
+$tn($v55);
+$o += "</a></nav>";
+$L = false;
+} else {
+const $v62 = $rC2.base;
+const $v63 = $p0.hrefPrefix;
+const $v64 = $p0.totalMatching;
+const $v65 = $rC1.groupSep;
+const $v66 = formatInt($v64, $v65);
+const $v67 = ($v62 + $v63);
+const $v68 = ($v67 + ($v48 - 1));
+const $v70 = [$v7, $v9, $v10, $v11];
+$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\"><a class=\"ns-page-link ns-page-wide\"" + $at($v68, " href=\"", "\"", "", "", "", 298) + " rel=\"prev\">Previous</a>";
+$L = false;
+const $a69 = $v70;
+if (!Array.isArray($a69)) $fb(299);
+const $n69 = $a69.length;
+const $b69_0 = $p0;
+const $b69_1 = $v67;
+for (let $i69 = 0; $i69 < $n69; $i69++) $B50($a69[$i69], $i69, $a69, $b69_0, $b69_1, null);
+const $v71 = ($v67 + "all");
+$o += "<span class=\"ns-page-link ns-page-wide is-disabled\">Next</span><a class=\"ns-page-all\" href=\"" + $e($v71) + "\">View all ";
+$L = true;
+$tn($v66);
+$o += "</a></nav>";
+$L = false;
+}
+} else {
+const $v72 = ($v48 < $v0);
+if ($v72) {
+const $v73 = $rC2.base;
+const $v74 = $p0.hrefPrefix;
+const $v75 = $p0.totalMatching;
+const $v76 = $rC1.groupSep;
+const $v77 = formatInt($v75, $v76);
+const $v79 = [$v7, $v9, $v10, $v11];
+const $v80 = ($v73 + $v74);
+$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\"><span class=\"ns-page-link ns-page-wide is-disabled\">Previous</span>";
+$L = false;
+const $a78 = $v79;
+if (!Array.isArray($a78)) $fb(301);
+const $n78 = $a78.length;
+const $b78_0 = $p0;
+const $b78_1 = $v80;
+for (let $i78 = 0; $i78 < $n78; $i78++) $B50($a78[$i78], $i78, $a78, $b78_0, $b78_1, null);
+const $v81 = ($v80 + ($v48 + 1));
+const $v82 = ($v80 + "all");
+$o += "<a class=\"ns-page-link ns-page-wide\"" + $at($v81, " href=\"", "\"", "", "", "", 302) + " rel=\"next\">Next</a><a class=\"ns-page-all\" href=\"" + $e($v82) + "\">View all ";
+$L = true;
+$tn($v77);
+$o += "</a></nav>";
+$L = false;
+} else {
+$fb(304);
+}
+}
+}
+} else {
+const $v83 = $p0.currentPage;
+const $v84 = ($v83 > 1);
+if ($v84) {
+const $v85 = ($v83 < $v0);
+if ($v85) {
+const $v86 = $rC2.base;
+const $v87 = $p0.hrefPrefix;
+const $v88 = $p0.totalMatching;
+const $v89 = $rC1.groupSep;
+const $v90 = formatInt($v88, $v89);
+const $v91 = ($v86 + $v87);
+const $v92 = ($v91 + ($v83 - 1));
+const $v94 = [$v7, $v9, $v10];
+$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\"><a class=\"ns-page-link ns-page-wide\"" + $at($v92, " href=\"", "\"", "", "", "", 305) + " rel=\"prev\">Previous</a>";
+$L = false;
+const $a93 = $v94;
+if (!Array.isArray($a93)) $fb(306);
+const $n93 = $a93.length;
+const $b93_0 = $p0;
+const $b93_1 = $v91;
+for (let $i93 = 0; $i93 < $n93; $i93++) $B50($a93[$i93], $i93, $a93, $b93_0, $b93_1, null);
+const $v95 = ($v91 + ($v83 + 1));
+const $v96 = ($v91 + "all");
+$o += "<a class=\"ns-page-link ns-page-wide\"" + $at($v95, " href=\"", "\"", "", "", "", 307) + " rel=\"next\">Next</a><a class=\"ns-page-all\" href=\"" + $e($v96) + "\">View all ";
+$L = true;
+$tn($v90);
+$o += "</a></nav>";
+$L = false;
+} else {
+const $v97 = $rC2.base;
+const $v98 = $p0.hrefPrefix;
+const $v99 = $p0.totalMatching;
+const $v100 = $rC1.groupSep;
+const $v101 = formatInt($v99, $v100);
+const $v102 = ($v97 + $v98);
+const $v103 = ($v102 + ($v83 - 1));
+const $v105 = [$v7, $v9, $v10];
+$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\"><a class=\"ns-page-link ns-page-wide\"" + $at($v103, " href=\"", "\"", "", "", "", 309) + " rel=\"prev\">Previous</a>";
+$L = false;
+const $a104 = $v105;
+if (!Array.isArray($a104)) $fb(310);
+const $n104 = $a104.length;
+const $b104_0 = $p0;
+const $b104_1 = $v102;
+for (let $i104 = 0; $i104 < $n104; $i104++) $B50($a104[$i104], $i104, $a104, $b104_0, $b104_1, null);
+const $v106 = ($v102 + "all");
+$o += "<span class=\"ns-page-link ns-page-wide is-disabled\">Next</span><a class=\"ns-page-all\" href=\"" + $e($v106) + "\">View all ";
+$L = true;
+$tn($v101);
+$o += "</a></nav>";
+$L = false;
+}
+} else {
+const $v107 = ($v83 < $v0);
+if ($v107) {
+const $v108 = $rC2.base;
+const $v109 = $p0.hrefPrefix;
+const $v110 = $p0.totalMatching;
+const $v111 = $rC1.groupSep;
+const $v112 = formatInt($v110, $v111);
+const $v114 = [$v7, $v9, $v10];
+const $v115 = ($v108 + $v109);
+$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\"><span class=\"ns-page-link ns-page-wide is-disabled\">Previous</span>";
+$L = false;
+const $a113 = $v114;
+if (!Array.isArray($a113)) $fb(312);
+const $n113 = $a113.length;
+const $b113_0 = $p0;
+const $b113_1 = $v115;
+for (let $i113 = 0; $i113 < $n113; $i113++) $B50($a113[$i113], $i113, $a113, $b113_0, $b113_1, null);
+const $v116 = ($v115 + ($v83 + 1));
+const $v117 = ($v115 + "all");
+$o += "<a class=\"ns-page-link ns-page-wide\"" + $at($v116, " href=\"", "\"", "", "", "", 313) + " rel=\"next\">Next</a><a class=\"ns-page-all\" href=\"" + $e($v117) + "\">View all ";
+$L = true;
+$tn($v112);
+$o += "</a></nav>";
+$L = false;
+} else {
+$fb(315);
+}
+}
+}
+} else {
+const $v118 = $p0.currentPage;
+const $v119 = ($v118 > 1);
+if ($v119) {
+const $v120 = ($v118 < $v0);
+if ($v120) {
+$fb(316);
+} else {
+const $v121 = $rC2.base;
+const $v122 = $p0.hrefPrefix;
+const $v123 = $p0.totalMatching;
+const $v124 = $rC1.groupSep;
+const $v125 = formatInt($v123, $v124);
+const $v126 = ($v121 + $v122);
+const $v127 = ($v126 + ($v118 - 1));
+const $v129 = [$v7, $v9];
+$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\"><a class=\"ns-page-link ns-page-wide\"" + $at($v127, " href=\"", "\"", "", "", "", 317) + " rel=\"prev\">Previous</a>";
+$L = false;
+const $a128 = $v129;
+if (!Array.isArray($a128)) $fb(318);
+const $n128 = $a128.length;
+const $b128_0 = $p0;
+const $b128_1 = $v126;
+for (let $i128 = 0; $i128 < $n128; $i128++) $B50($a128[$i128], $i128, $a128, $b128_0, $b128_1, null);
+const $v130 = ($v126 + "all");
+$o += "<span class=\"ns-page-link ns-page-wide is-disabled\">Next</span><a class=\"ns-page-all\" href=\"" + $e($v130) + "\">View all ";
+$L = true;
+$tn($v125);
+$o += "</a></nav>";
+$L = false;
+}
+} else {
+const $v131 = ($v118 < $v0);
+if ($v131) {
+const $v132 = $rC2.base;
+const $v133 = $p0.hrefPrefix;
+const $v134 = $p0.totalMatching;
+const $v135 = $rC1.groupSep;
+const $v136 = formatInt($v134, $v135);
+const $v138 = [$v7, $v9];
+const $v139 = ($v132 + $v133);
+$o += "<nav class=\"ns-pagination\" aria-label=\"Pagination\"><span class=\"ns-page-link ns-page-wide is-disabled\">Previous</span>";
+$L = false;
+const $a137 = $v138;
+if (!Array.isArray($a137)) $fb(320);
+const $n137 = $a137.length;
+const $b137_0 = $p0;
+const $b137_1 = $v139;
+for (let $i137 = 0; $i137 < $n137; $i137++) $B50($a137[$i137], $i137, $a137, $b137_0, $b137_1, null);
+const $v140 = ($v139 + ($v118 + 1));
+const $v141 = ($v139 + "all");
+$o += "<a class=\"ns-page-link ns-page-wide\"" + $at($v140, " href=\"", "\"", "", "", "", 321) + " rel=\"next\">Next</a><a class=\"ns-page-all\" href=\"" + $e($v141) + "\">View all ";
+$L = true;
+$tn($v136);
+$o += "</a></nav>";
+$L = false;
+} else {
+$fb(323);
+}
+}
+}
+} else {
+$fb(324);
+}
+} else {
+$fb(325);
+}
+}
+}
+}
+}
+function $T5($p0, $tc) {
+const $rC1 = $ctx[1];
+if ((!$p0)) {
+
+} else {
+const $v0 = $p0.minOrder;
+if (($v0 !== void 0)) {
+if (($v0 > 0)) {
+const $v1 = $p0.code;
+if ($v1) {
+const $v2 = $p0.html;
+switch ($hcls($v2)) {
+case "s": {
+const $v3 = $p0.urgent;
+const $v4 = Boolean($v3);
+const $v5 = $tab6[($v4 ? 1 : 0)];
+const $v6 = $p0.active;
+const $v7 = formatMoney($v0, $rC1);
+const $v8 = (!$v6);
+const $x9 = $es($v1);
+$o += "<section class=\"" + $v5 + "\"" + ($v8 ? " hidden=\"\"" : "") + ($x9 !== null ? " data-campaign=\"" + $x9 + "\"" : $at($v1, " data-campaign=\"", "\"", " data-campaign=\"true\"", " data-campaign=\"false\"", "", 328)) + "><p class=\"ns-promo-inner ns-container\"><span class=\"ns-promo-html\">" + ("" + $v2) + "</span><span class=\"ns-promo-min\">Min. order ";
+$L = true;
+$tn($v7);
+$o += "</span><span class=\"ns-promo-code\">Code <code>";
+$L = false;
+if ($x9 !== null) $te($x9); else $tn($v1);
+$o += "</code></span></p></section>";
+$L = false;
+break;
+}
+default: $fb(329);
+}
+} else {
+const $v10 = $p0.html;
+switch ($hcls($v10)) {
+case "s": {
+const $v11 = $p0.urgent;
+const $v12 = Boolean($v11);
+const $v13 = $tab6[($v12 ? 1 : 0)];
+const $v14 = $p0.active;
+const $v15 = formatMoney($v0, $rC1);
+const $v16 = (!$v14);
+$o += "<section class=\"" + $v13 + "\"" + ($v16 ? " hidden=\"\"" : "") + $at($v1, " data-campaign=\"", "\"", " data-campaign=\"true\"", " data-campaign=\"false\"", "", 332) + "><p class=\"ns-promo-inner ns-container\"><span class=\"ns-promo-html\">" + ("" + $v10) + "</span><span class=\"ns-promo-min\">Min. order ";
+$L = true;
+$tn($v15);
+$o += "</span></p></section>";
+$L = false;
+break;
+}
+default: $fb(333);
+}
+}
+} else {
+$fb(334);
+}
+} else {
+const $v17 = $p0.code;
+if ($v17) {
+const $v18 = $p0.html;
+switch ($hcls($v18)) {
+case "s": {
+const $v19 = $p0.urgent;
+const $v20 = Boolean($v19);
+const $v21 = $tab6[($v20 ? 1 : 0)];
+const $v22 = $p0.active;
+const $v23 = (!$v22);
+const $x24 = $es($v17);
+$o += "<section class=\"" + $v21 + "\"" + ($v23 ? " hidden=\"\"" : "") + ($x24 !== null ? " data-campaign=\"" + $x24 + "\"" : $at($v17, " data-campaign=\"", "\"", " data-campaign=\"true\"", " data-campaign=\"false\"", "", 337)) + "><p class=\"ns-promo-inner ns-container\"><span class=\"ns-promo-html\">" + ("" + $v18) + "</span><span class=\"ns-promo-code\">Code <code>";
+$L = false;
+if ($x24 !== null) $te($x24); else $tn($v17);
+$o += "</code></span></p></section>";
+$L = false;
+break;
+}
+default: $fb(338);
+}
+} else {
+const $v25 = $p0.html;
+switch ($hcls($v25)) {
+case "s": {
+const $v26 = $p0.urgent;
+const $v27 = Boolean($v26);
+const $v28 = $tab6[($v27 ? 1 : 0)];
+const $v29 = $p0.active;
+const $v30 = (!$v29);
+$o += "<section class=\"" + $v28 + "\"" + ($v30 ? " hidden=\"\"" : "") + $at($v17, " data-campaign=\"", "\"", " data-campaign=\"true\"", " data-campaign=\"false\"", "", 341) + "><p class=\"ns-promo-inner ns-container\"><span class=\"ns-promo-html\">" + ("" + $v25) + "</span></p></section>";
+$L = false;
+break;
+}
+default: $fb(342);
+}
+}
+}
+}
+}
+function $T51($p0, $p1, $tc) {
+const $rC1 = $ctx[1];
+const $v0 = Boolean($p1);
+const $v1 = $tab7[($v0 ? 1 : 0)];
+const $v2 = $rC1.groupSep;
+const $v3 = formatInt($p0, $v2);
+$o += "<span class=\"" + $v1 + "\"" + (($p0 <= 0) ? " hidden=\"\"" : "") + (($p0 === 0) ? " data-zero=\"true\"" : " data-zero=\"false\"") + ">";
+$L = false;
+$tn($v3);
+$o += "</span>";
+$L = false;
+}
+function $T52($p0, $p1, $p2, $tc) {
+const $rI0 = $id($tc, 0);
+if ($p0) {
+const $v0 = Boolean($p0);
+const $v1 = $p2.selected;
+const $v2 = cx("ns-filter-opt", ({"is-selected": $v1, "is-disabled": $v0}));
+const $v3 = $p2.value;
+const $v4 = Boolean($v1);
+const $v5 = $p2.label;
+const $v6 = $p2.count;
+$o += "<li" + $at($v2, " class=\"", "\"", "", "", "", 346) + "><input type=\"checkbox\" id=\"" + $rI0 + "\"" + $at($p1, " name=\"", "\"", "", "", "", 348) + ($v0 ? " disabled=\"\"" : "") + ($v4 ? " checked=\"\"" : "") + $at($v3, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 351) + "/><label for=\"" + $rI0 + "\">";
+$L = false;
+$tn($v5);
+$o += "</label>";
+$L = false;
+$T51_0($v6, null);
+$o += "</li>";
+$L = false;
+} else {
+const $v7 = $p2.count;
+const $v8 = ($v7 === 0);
+if ($v8) {
+const $v9 = $p2.selected;
+const $v10 = Boolean((!$v9));
+const $v11 = cx("ns-filter-opt", ({"is-selected": $v9, "is-disabled": $v10}));
+const $v12 = $p2.value;
+const $v13 = Boolean($v9);
+const $v14 = $p2.label;
+$o += "<li" + $at($v11, " class=\"", "\"", "", "", "", 353) + "><input type=\"checkbox\" id=\"" + $rI0 + "\"" + $at($p1, " name=\"", "\"", "", "", "", 355) + ($v10 ? " disabled=\"\"" : "") + ($v13 ? " checked=\"\"" : "") + $at($v12, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 358) + "/><label for=\"" + $rI0 + "\">";
+$L = false;
+$tn($v14);
+$o += "</label>";
+$L = false;
+$T51_0($v7, null);
+$o += "</li>";
+$L = false;
+} else {
+const $v15 = Boolean($v8);
+const $v16 = $p2.selected;
+const $v17 = cx("ns-filter-opt", ({"is-selected": $v16, "is-disabled": $v15}));
+const $v18 = $p2.value;
+const $v19 = Boolean($v16);
+const $v20 = $p2.label;
+$o += "<li" + $at($v17, " class=\"", "\"", "", "", "", 360) + "><input type=\"checkbox\" id=\"" + $rI0 + "\"" + $at($p1, " name=\"", "\"", "", "", "", 362) + ($v15 ? " disabled=\"\"" : "") + ($v19 ? " checked=\"\"" : "") + $at($v18, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 365) + "/><label for=\"" + $rI0 + "\">";
+$L = false;
+$tn($v20);
+$o += "</label>";
+$L = false;
+$T51_0($v7, null);
+$o += "</li>";
+$L = false;
+}
+}
+}
+function $T53($p0, $tc) {
+const $v0 = $p0.options;
+const $v1 = $v0.length;
+if (($v1 === 0)) {
+const $v2 = $p0.disabled;
+const $v3 = Boolean($v2);
+const $v4 = $p0.id;
+const $v5 = $p0.title;
+$o += "<fieldset class=\"ns-filter-group\"" + ($v3 ? " disabled=\"\"" : "") + $at($v4, " data-filter-key=\"", "\"", " data-filter-key=\"true\"", " data-filter-key=\"false\"", "", 368) + "><legend class=\"ns-filter-legend\">";
+$L = false;
+$tn($v5);
+$o += "</legend><p class=\"ns-filter-empty\">No options</p></fieldset>";
+$L = false;
+} else {
+const $v6 = $p0.disabled;
+const $v7 = Boolean($v6);
+const $v8 = $p0.id;
+const $v9 = $p0.title;
+$o += "<fieldset class=\"ns-filter-group\"" + ($v7 ? " disabled=\"\"" : "") + $at($v8, " data-filter-key=\"", "\"", " data-filter-key=\"true\"", " data-filter-key=\"false\"", "", 370) + "><legend class=\"ns-filter-legend\">";
+$L = false;
+$tn($v9);
+const $tc10 = $push($tc, 2, 1);
+$o += "</legend><ul class=\"ns-filter-list\">";
+$L = false;
+const $a11 = $v0;
+if (!Array.isArray($a11)) $fb(371);
+const $n11 = $a11.length;
+const $b11_0 = $p0;
+for (let $i11 = 0; $i11 < $n11; $i11++) $B54($a11[$i11], $i11, $a11, $b11_0, $push($tc10, $n11, $i11));
+$o += "</ul></fieldset>";
+$L = false;
+}
+}
+function $T55($p0, $p1, $p2, $p3, $p4, $tc) {
+const $rC2 = $ctx[2];
+const $rI0 = $id($tc, 0);
+const $rI1 = $id($tc, 1);
+if (($p0 > 0)) {
+if ($p4) {
+const $v0 = $rC2.base;
+const $v1 = $rC2.path;
+const $v2 = Boolean($p3);
+const $tcR = $push($tc, 1, 0);
+$o += "<aside class=\"ns-sidebar\" aria-labelledby=\"" + $rI0 + "\"><details class=\"ns-filters\" open=\"\"><summary class=\"ns-filters-summary\">Filters<span class=\"ns-filters-count\">";
+$L = false;
+$tn($p0);
+const $tc3 = $push($tcR, 2, 1);
+const $v4 = ($v0 + $v1);
+const $tc5 = $push($tc3, 5, 3);
+$o += "</span></summary><form id=\"ns-filter-form\" class=\"ns-filter-form\" method=\"get\"" + $at($v4, " action=\"", "\"", "", "", "", 373) + " data-autosubmit=\"true\"><h2 id=\"" + $rI0 + "\" class=\"ns-sidebar-title\">Filters</h2><input type=\"hidden\" name=\"q\"" + $at($p4, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 375) + "/><fieldset class=\"ns-filter-group\"><legend class=\"ns-filter-legend\">Availability</legend><div class=\"ns-filter-opt\"><input type=\"checkbox\" id=\"" + $rI1 + "\" name=\"in_stock\"" + ($v2 ? " checked=\"\"" : "") + " value=\"1\"/><label for=\"" + $rI1 + "\">In stock only</label></div></fieldset>";
+$L = false;
+const $a6 = $p2;
+if (!Array.isArray($a6)) $fb(379);
+const $n6 = $a6.length;
+for (let $i6 = 0; $i6 < $n6; $i6++) $B56($a6[$i6], $i6, $a6, $push($tc5, $n6, $i6));
+const $v7 = ($v0 + $p1);
+$o += "<div class=\"ns-filter-actions\"><button type=\"submit\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Apply filters</button><a class=\"ns-filter-clear\"" + $at($v7, " href=\"", "\"", "", "", "", 380) + ">Clear all</a></div></form></details></aside>";
+$L = false;
+} else {
+const $v8 = $rC2.base;
+const $v9 = $rC2.path;
+const $v10 = Boolean($p3);
+const $tcR = $push($tc, 1, 0);
+$o += "<aside class=\"ns-sidebar\" aria-labelledby=\"" + $rI0 + "\"><details class=\"ns-filters\" open=\"\"><summary class=\"ns-filters-summary\">Filters<span class=\"ns-filters-count\">";
+$L = false;
+$tn($p0);
+const $tc11 = $push($tcR, 2, 1);
+const $v12 = ($v8 + $v9);
+const $tc13 = $push($tc11, 5, 3);
+$o += "</span></summary><form id=\"ns-filter-form\" class=\"ns-filter-form\" method=\"get\"" + $at($v12, " action=\"", "\"", "", "", "", 382) + " data-autosubmit=\"true\"><h2 id=\"" + $rI0 + "\" class=\"ns-sidebar-title\">Filters</h2><fieldset class=\"ns-filter-group\"><legend class=\"ns-filter-legend\">Availability</legend><div class=\"ns-filter-opt\"><input type=\"checkbox\" id=\"" + $rI1 + "\" name=\"in_stock\"" + ($v10 ? " checked=\"\"" : "") + " value=\"1\"/><label for=\"" + $rI1 + "\">In stock only</label></div></fieldset>";
+$L = false;
+const $a14 = $p2;
+if (!Array.isArray($a14)) $fb(387);
+const $n14 = $a14.length;
+for (let $i14 = 0; $i14 < $n14; $i14++) $B56($a14[$i14], $i14, $a14, $push($tc13, $n14, $i14));
+const $v15 = ($v8 + $p1);
+$o += "<div class=\"ns-filter-actions\"><button type=\"submit\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Apply filters</button><a class=\"ns-filter-clear\"" + $at($v15, " href=\"", "\"", "", "", "", 388) + ">Clear all</a></div></form></details></aside>";
+$L = false;
+}
+} else {
+if ($p4) {
+const $v16 = $rC2.base;
+const $v17 = $rC2.path;
+const $v18 = Boolean($p3);
+const $tcR = $push($tc, 1, 0);
+const $tc19 = $push($tcR, 2, 1);
+const $v20 = ($v16 + $v17);
+const $tc21 = $push($tc19, 5, 3);
+$o += "<aside class=\"ns-sidebar\" aria-labelledby=\"" + $rI0 + "\"><details class=\"ns-filters\" open=\"\"><summary class=\"ns-filters-summary\">Filters</summary><form id=\"ns-filter-form\" class=\"ns-filter-form\" method=\"get\"" + $at($v20, " action=\"", "\"", "", "", "", 390) + " data-autosubmit=\"true\"><h2 id=\"" + $rI0 + "\" class=\"ns-sidebar-title\">Filters</h2><input type=\"hidden\" name=\"q\"" + $at($p4, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 392) + "/><fieldset class=\"ns-filter-group\"><legend class=\"ns-filter-legend\">Availability</legend><div class=\"ns-filter-opt\"><input type=\"checkbox\" id=\"" + $rI1 + "\" name=\"in_stock\"" + ($v18 ? " checked=\"\"" : "") + " value=\"1\"/><label for=\"" + $rI1 + "\">In stock only</label></div></fieldset>";
+$L = false;
+const $a22 = $p2;
+if (!Array.isArray($a22)) $fb(396);
+const $n22 = $a22.length;
+for (let $i22 = 0; $i22 < $n22; $i22++) $B56($a22[$i22], $i22, $a22, $push($tc21, $n22, $i22));
+$o += "<div class=\"ns-filter-actions\"><button type=\"submit\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Apply filters</button></div></form></details></aside>";
+$L = false;
+} else {
+const $v23 = $rC2.base;
+const $v24 = $rC2.path;
+const $v25 = Boolean($p3);
+const $tcR = $push($tc, 1, 0);
+const $tc26 = $push($tcR, 2, 1);
+const $v27 = ($v23 + $v24);
+const $tc28 = $push($tc26, 5, 3);
+$o += "<aside class=\"ns-sidebar\" aria-labelledby=\"" + $rI0 + "\"><details class=\"ns-filters\" open=\"\"><summary class=\"ns-filters-summary\">Filters</summary><form id=\"ns-filter-form\" class=\"ns-filter-form\" method=\"get\"" + $at($v27, " action=\"", "\"", "", "", "", 398) + " data-autosubmit=\"true\"><h2 id=\"" + $rI0 + "\" class=\"ns-sidebar-title\">Filters</h2><fieldset class=\"ns-filter-group\"><legend class=\"ns-filter-legend\">Availability</legend><div class=\"ns-filter-opt\"><input type=\"checkbox\" id=\"" + $rI1 + "\" name=\"in_stock\"" + ($v25 ? " checked=\"\"" : "") + " value=\"1\"/><label for=\"" + $rI1 + "\">In stock only</label></div></fieldset>";
+$L = false;
+const $a29 = $p2;
+if (!Array.isArray($a29)) $fb(403);
+const $n29 = $a29.length;
+for (let $i29 = 0; $i29 < $n29; $i29++) $B56($a29[$i29], $i29, $a29, $push($tc28, $n29, $i29));
+$o += "<div class=\"ns-filter-actions\"><button type=\"submit\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Apply filters</button></div></form></details></aside>";
+$L = false;
+}
+}
+}
+function $T57($p0, $p1, $p2, $p3, $tc) {
+const $rC2 = $ctx[2];
+if ($p3) {
+if ($p2) {
+const $v0 = $rC2.base;
+const $v1 = (("No results for “" + $p3) + "”");
+$o += "<div class=\"ns-empty\" role=\"status\"" + $at($p3, " data-query=\"", "\"", " data-query=\"true\"", " data-query=\"false\"", "", 404) + "><div class=\"ns-empty-art\" aria-hidden=\"true\"></div><h2 class=\"ns-empty-title\">";
+$L = false;
+$te($e(("No results for “" + $p3)) + "”");
+const $v2 = ($v0 + $p1);
+$o += "</h2><p class=\"ns-empty-desc\">Check the spelling, use fewer words, or try a category below.</p><div class=\"ns-empty-actions\"><a class=\"ns-btn ns-btn-primary\"" + $at($v2, " href=\"", "\"", "", "", "", 405) + ">Clear filters</a></div><ul class=\"ns-empty-cats\" aria-label=\"Categories\">";
+$L = false;
+const $a3 = $p0;
+if (!Array.isArray($a3)) $fb(406);
+const $n3 = $a3.length;
+const $b3_0 = $rC2;
+for (let $i3 = 0; $i3 < $n3; $i3++) $B58($a3[$i3], $i3, $a3, $b3_0, null);
+$o += "</ul></div>";
+$L = false;
+} else {
+const $v4 = $rC2.base;
+const $v5 = (("No results for “" + $p3) + "”");
+$o += "<div class=\"ns-empty\" role=\"status\"" + $at($p3, " data-query=\"", "\"", " data-query=\"true\"", " data-query=\"false\"", "", 407) + "><div class=\"ns-empty-art\" aria-hidden=\"true\"></div><h2 class=\"ns-empty-title\">";
+$L = false;
+$te($e(("No results for “" + $p3)) + "”");
+const $v6 = ($v4 + "/shop");
+$o += "</h2><p class=\"ns-empty-desc\">Check the spelling, use fewer words, or try a category below.</p><div class=\"ns-empty-actions\"><a class=\"ns-btn ns-btn-primary\" href=\"" + $e($v6) + "\">Browse all products</a></div><ul class=\"ns-empty-cats\" aria-label=\"Categories\">";
+$L = false;
+const $a7 = $p0;
+if (!Array.isArray($a7)) $fb(409);
+const $n7 = $a7.length;
+const $b7_0 = $rC2;
+for (let $i7 = 0; $i7 < $n7; $i7++) $B58($a7[$i7], $i7, $a7, $b7_0, null);
+$o += "</ul></div>";
+$L = false;
+}
+} else {
+if ($p2) {
+const $v8 = $rC2.base;
+const $v9 = ($v8 + $p1);
+$o += "<div class=\"ns-empty\" role=\"status\"" + $at($p3, " data-query=\"", "\"", " data-query=\"true\"", " data-query=\"false\"", "", 410) + "><div class=\"ns-empty-art\" aria-hidden=\"true\"></div><h2 class=\"ns-empty-title\">No products match these filters</h2><p class=\"ns-empty-desc\">Try removing a filter or browse another category.</p><div class=\"ns-empty-actions\"><a class=\"ns-btn ns-btn-primary\"" + $at($v9, " href=\"", "\"", "", "", "", 411) + ">Clear filters</a></div><ul class=\"ns-empty-cats\" aria-label=\"Categories\">";
+$L = false;
+const $a10 = $p0;
+if (!Array.isArray($a10)) $fb(412);
+const $n10 = $a10.length;
+const $b10_0 = $rC2;
+for (let $i10 = 0; $i10 < $n10; $i10++) $B58($a10[$i10], $i10, $a10, $b10_0, null);
+$o += "</ul></div>";
+$L = false;
+} else {
+const $v11 = $rC2.base;
+const $v12 = ($v11 + "/shop");
+$o += "<div class=\"ns-empty\" role=\"status\"" + $at($p3, " data-query=\"", "\"", " data-query=\"true\"", " data-query=\"false\"", "", 413) + "><div class=\"ns-empty-art\" aria-hidden=\"true\"></div><h2 class=\"ns-empty-title\">No products match these filters</h2><p class=\"ns-empty-desc\">Try removing a filter or browse another category.</p><div class=\"ns-empty-actions\"><a class=\"ns-btn ns-btn-primary\" href=\"" + $e($v12) + "\">Browse all products</a></div><ul class=\"ns-empty-cats\" aria-label=\"Categories\">";
+$L = false;
+const $a13 = $p0;
+if (!Array.isArray($a13)) $fb(415);
+const $n13 = $a13.length;
+const $b13_0 = $rC2;
+for (let $i13 = 0; $i13 < $n13; $i13++) $B58($a13[$i13], $i13, $a13, $b13_0, null);
+$o += "</ul></div>";
+$L = false;
+}
+}
+}
+function $T59($p0, $p1, $p2, $p3, $p4, $p5, $p6, $tc) {
+const $v0 = $p3.description;
+if ($v0) {
+const $v1 = $p3.kind;
+const $v2 = ($v1 === "search");
+if ($v2) {
+const $v3 = $p4.length;
+const $v4 = ($v3 === 0);
+if ($v4) {
+const $v5 = $p3.title;
+const $v6 = $p5.inStockOnly;
+const $v7 = $p5.query;
+const $v8 = $p0.length;
+const $v9 = $p3.clearHref;
+const $v10 = $p3.pagination;
+const $v11 = $p5.sortBy;
+$o += "<div class=\"ns-listing ns-container\"" + $at($v1, " data-kind=\"", "\"", " data-kind=\"true\"", " data-kind=\"false\"", "", 416) + "><header class=\"ns-page-head\"><h1 class=\"ns-page-title\">";
+$L = false;
+$tn($v5);
+$o += "</h1><p class=\"ns-page-desc\">";
+$L = false;
+$tn($v0);
+const $tc12 = $push($tc, 2, 1);
+const $tc13 = $push($tc12, 2, 0);
+$o += "</p></header><div class=\"ns-layout\">";
+$L = false;
+$T55($v8, $v9, $p2, $v6, $v7, $tc13);
+const $tc14 = $push($tc12, 2, 1);
+const $tc15 = $push($tc14, 3, 0);
+$o += "<div class=\"ns-results\">";
+$L = false;
+$T47($p0, $v10, $v11, $p6, $tc15);
+const $v16 = ($v8 > 0);
+$T57($p1, $v9, $v16, $v7, null);
+$T49($v10, null);
+$o += "</div></div></div>";
+$L = false;
+} else {
+const $v17 = $p3.title;
+const $v18 = $p5.inStockOnly;
+const $v19 = $p5.query;
+const $v20 = $p0.length;
+const $v21 = $p3.clearHref;
+const $v22 = $p3.pagination;
+const $v23 = $p5.sortBy;
+$o += "<div class=\"ns-listing ns-container\"" + $at($v1, " data-kind=\"", "\"", " data-kind=\"true\"", " data-kind=\"false\"", "", 417) + "><header class=\"ns-page-head\"><h1 class=\"ns-page-title\">";
+$L = false;
+$tn($v17);
+$o += "</h1><p class=\"ns-page-desc\">";
+$L = false;
+$tn($v0);
+const $tc24 = $push($tc, 2, 1);
+const $tc25 = $push($tc24, 2, 0);
+$o += "</p></header><div class=\"ns-layout\">";
+$L = false;
+$T55($v20, $v21, $p2, $v18, $v19, $tc25);
+const $tc26 = $push($tc24, 2, 1);
+const $tc27 = $push($tc26, 3, 0);
+$o += "<div class=\"ns-results\">";
+$L = false;
+$T47($p0, $v22, $v23, $p6, $tc27);
+const $tc28 = $push($tc26, 3, 1);
+$T44_1($p4, $tc28);
+$T49($v22, null);
+$o += "</div></div></div>";
+$L = false;
+}
+} else {
+const $v29 = $p4.length;
+const $v30 = ($v29 === 0);
+if ($v30) {
+const $v31 = $p3.title;
+const $v32 = $p5.inStockOnly;
+const $v33 = $p0.length;
+const $v34 = $p3.clearHref;
+const $v35 = $p3.pagination;
+const $v36 = $p5.sortBy;
+const $v37 = $p5.query;
+$o += "<div class=\"ns-listing ns-container\"" + $at($v1, " data-kind=\"", "\"", " data-kind=\"true\"", " data-kind=\"false\"", "", 418) + "><header class=\"ns-page-head\"><h1 class=\"ns-page-title\">";
+$L = false;
+$tn($v31);
+$o += "</h1><p class=\"ns-page-desc\">";
+$L = false;
+$tn($v0);
+const $tc38 = $push($tc, 2, 1);
+const $tc39 = $push($tc38, 2, 0);
+$o += "</p></header><div class=\"ns-layout\">";
+$L = false;
+$T55_0($v33, $v34, $p2, $v32, $tc39);
+const $tc40 = $push($tc38, 2, 1);
+const $tc41 = $push($tc40, 3, 0);
+$o += "<div class=\"ns-results\">";
+$L = false;
+$T47($p0, $v35, $v36, $p6, $tc41);
+const $v42 = ($v33 > 0);
+$T57($p1, $v34, $v42, $v37, null);
+$T49($v35, null);
+$o += "</div></div></div>";
+$L = false;
+} else {
+const $v43 = $p3.title;
+const $v44 = $p5.inStockOnly;
+const $v45 = $p0.length;
+const $v46 = $p3.clearHref;
+const $v47 = $p3.pagination;
+const $v48 = $p5.sortBy;
+$o += "<div class=\"ns-listing ns-container\"" + $at($v1, " data-kind=\"", "\"", " data-kind=\"true\"", " data-kind=\"false\"", "", 419) + "><header class=\"ns-page-head\"><h1 class=\"ns-page-title\">";
+$L = false;
+$tn($v43);
+$o += "</h1><p class=\"ns-page-desc\">";
+$L = false;
+$tn($v0);
+const $tc49 = $push($tc, 2, 1);
+const $tc50 = $push($tc49, 2, 0);
+$o += "</p></header><div class=\"ns-layout\">";
+$L = false;
+$T55_0($v45, $v46, $p2, $v44, $tc50);
+const $tc51 = $push($tc49, 2, 1);
+const $tc52 = $push($tc51, 3, 0);
+$o += "<div class=\"ns-results\">";
+$L = false;
+$T47($p0, $v47, $v48, $p6, $tc52);
+const $tc53 = $push($tc51, 3, 1);
+$T44_1($p4, $tc53);
+$T49($v47, null);
+$o += "</div></div></div>";
+$L = false;
+}
+}
+} else {
+const $v54 = $p3.kind;
+const $v55 = ($v54 === "search");
+if ($v55) {
+const $v56 = $p4.length;
+const $v57 = ($v56 === 0);
+if ($v57) {
+const $v58 = $p3.title;
+const $v59 = $p5.inStockOnly;
+const $v60 = $p5.query;
+const $v61 = $p0.length;
+const $v62 = $p3.clearHref;
+const $v63 = $p3.pagination;
+const $v64 = $p5.sortBy;
+$o += "<div class=\"ns-listing ns-container\"" + $at($v54, " data-kind=\"", "\"", " data-kind=\"true\"", " data-kind=\"false\"", "", 420) + "><header class=\"ns-page-head\"><h1 class=\"ns-page-title\">";
+$L = false;
+$tn($v58);
+const $tc65 = $push($tc, 2, 1);
+const $tc66 = $push($tc65, 2, 0);
+$o += "</h1></header><div class=\"ns-layout\">";
+$L = false;
+$T55($v61, $v62, $p2, $v59, $v60, $tc66);
+const $tc67 = $push($tc65, 2, 1);
+const $tc68 = $push($tc67, 3, 0);
+$o += "<div class=\"ns-results\">";
+$L = false;
+$T47($p0, $v63, $v64, $p6, $tc68);
+const $v69 = ($v61 > 0);
+$T57($p1, $v62, $v69, $v60, null);
+$T49($v63, null);
+$o += "</div></div></div>";
+$L = false;
+} else {
+const $v70 = $p3.title;
+const $v71 = $p5.inStockOnly;
+const $v72 = $p5.query;
+const $v73 = $p0.length;
+const $v74 = $p3.clearHref;
+const $v75 = $p3.pagination;
+const $v76 = $p5.sortBy;
+$o += "<div class=\"ns-listing ns-container\"" + $at($v54, " data-kind=\"", "\"", " data-kind=\"true\"", " data-kind=\"false\"", "", 421) + "><header class=\"ns-page-head\"><h1 class=\"ns-page-title\">";
+$L = false;
+$tn($v70);
+const $tc77 = $push($tc, 2, 1);
+const $tc78 = $push($tc77, 2, 0);
+$o += "</h1></header><div class=\"ns-layout\">";
+$L = false;
+$T55($v73, $v74, $p2, $v71, $v72, $tc78);
+const $tc79 = $push($tc77, 2, 1);
+const $tc80 = $push($tc79, 3, 0);
+$o += "<div class=\"ns-results\">";
+$L = false;
+$T47($p0, $v75, $v76, $p6, $tc80);
+const $tc81 = $push($tc79, 3, 1);
+$T44_1($p4, $tc81);
+$T49($v75, null);
+$o += "</div></div></div>";
+$L = false;
+}
+} else {
+const $v82 = $p4.length;
+const $v83 = ($v82 === 0);
+if ($v83) {
+const $v84 = $p3.title;
+const $v85 = $p5.inStockOnly;
+const $v86 = $p0.length;
+const $v87 = $p3.clearHref;
+const $v88 = $p3.pagination;
+const $v89 = $p5.sortBy;
+const $v90 = $p5.query;
+$o += "<div class=\"ns-listing ns-container\"" + $at($v54, " data-kind=\"", "\"", " data-kind=\"true\"", " data-kind=\"false\"", "", 422) + "><header class=\"ns-page-head\"><h1 class=\"ns-page-title\">";
+$L = false;
+$tn($v84);
+const $tc91 = $push($tc, 2, 1);
+const $tc92 = $push($tc91, 2, 0);
+$o += "</h1></header><div class=\"ns-layout\">";
+$L = false;
+$T55_0($v86, $v87, $p2, $v85, $tc92);
+const $tc93 = $push($tc91, 2, 1);
+const $tc94 = $push($tc93, 3, 0);
+$o += "<div class=\"ns-results\">";
+$L = false;
+$T47($p0, $v88, $v89, $p6, $tc94);
+const $v95 = ($v86 > 0);
+$T57($p1, $v87, $v95, $v90, null);
+$T49($v88, null);
+$o += "</div></div></div>";
+$L = false;
+} else {
+const $v96 = $p3.title;
+const $v97 = $p5.inStockOnly;
+const $v98 = $p0.length;
+const $v99 = $p3.clearHref;
+const $v100 = $p3.pagination;
+const $v101 = $p5.sortBy;
+$o += "<div class=\"ns-listing ns-container\"" + $at($v54, " data-kind=\"", "\"", " data-kind=\"true\"", " data-kind=\"false\"", "", 423) + "><header class=\"ns-page-head\"><h1 class=\"ns-page-title\">";
+$L = false;
+$tn($v96);
+const $tc102 = $push($tc, 2, 1);
+const $tc103 = $push($tc102, 2, 0);
+$o += "</h1></header><div class=\"ns-layout\">";
+$L = false;
+$T55_0($v98, $v99, $p2, $v97, $tc103);
+const $tc104 = $push($tc102, 2, 1);
+const $tc105 = $push($tc104, 3, 0);
+$o += "<div class=\"ns-results\">";
+$L = false;
+$T47($p0, $v100, $v101, $p6, $tc105);
+const $tc106 = $push($tc104, 3, 1);
+$T44_1($p4, $tc106);
+$T49($v100, null);
+$o += "</div></div></div>";
+$L = false;
+}
+}
+}
+}
+function $T6($p0, $tc) {
+const $rC2 = $ctx[2];
+if ((!$p0)) {
+$fb(424);
+} else {
+const $v0 = $p0.length;
+if (($v0 === 0)) {
+
+} else {
+$o += "<nav class=\"ns-crumbs ns-container\" aria-label=\"Breadcrumb\"><ol class=\"ns-crumb-list\">";
+$L = false;
+const $a1 = $p0;
+if (!Array.isArray($a1)) $fb(425);
+const $n1 = $a1.length;
+const $b1_0 = $p0;
+const $b1_1 = $rC2;
+for (let $i1 = 0; $i1 < $n1; $i1++) $B7($a1[$i1], $i1, $a1, $b1_0, $b1_1, null);
+$o += "</ol></nav>";
+$L = false;
+}
+}
+}
+function $T60($p0, $tc) {
+const $rC2 = $ctx[2];
+const $v0 = $rC2.base;
+$o += "<div class=\"ns-container\"><div class=\"ns-empty ns-notfound\" role=\"status\"><p class=\"ns-eyebrow\">Error 404</p><h1 class=\"ns-empty-title\">We couldn’t find that page</h1><p class=\"ns-empty-desc\">The link may be out of date, or the product is no longer stocked. Try searching, or start from a category.</p><div class=\"ns-empty-actions\"><a class=\"ns-btn ns-btn-primary\" href=\"" + $e(($v0 + "/")) + "\">Go to the home page</a><a class=\"ns-btn ns-btn-secondary\" href=\"" + $e(($v0 + "/shop")) + "\">All products</a></div><ul class=\"ns-empty-cats\" aria-label=\"Categories\">";
+$L = false;
+const $a1 = $p0;
+if (!Array.isArray($a1)) $fb(428);
+const $n1 = $a1.length;
+const $b1_0 = $rC2;
+for (let $i1 = 0; $i1 < $n1; $i1++) $B61($a1[$i1], $i1, $a1, $b1_0, null);
+$o += "</ul></div></div>";
+$L = false;
+}
+function $T62($p0, $tc) {
+if ((!$p0)) {
+$fb(429);
+} else {
+const $v0 = $p0.verified;
+if ($v0) {
+const $v1 = Boolean($v0);
+const $v2 = $p0.body;
+const $v3 = $p0.author;
+const $v4 = $p0.createdAtSec;
+const $v5 = formatDateUTC($v4, false);
+$o += "<figure class=\"ns-review\"" + ($v1 ? " data-verified=\"true\"" : " data-verified=\"false\"") + "><blockquote class=\"ns-review-body\"><p>“";
+$L = true;
+$tn($v2);
+$o += ($L ? "<!-- -->" : "") + "”</p></blockquote><figcaption class=\"ns-review-meta\"><span class=\"ns-review-author\">";
+$L = false;
+$tn($v3);
+$o += "</span><span class=\"ns-review-badge\">Verified buyer</span><time class=\"ns-review-date\">";
+$L = false;
+$tn($v5);
+$o += "</time></figcaption></figure>";
+$L = false;
+} else {
+const $v6 = Boolean($v0);
+const $v7 = $p0.body;
+const $v8 = $p0.author;
+const $v9 = $p0.createdAtSec;
+const $v10 = formatDateUTC($v9, false);
+$o += "<figure class=\"ns-review\"" + ($v6 ? " data-verified=\"true\"" : " data-verified=\"false\"") + "><blockquote class=\"ns-review-body\"><p>“";
+$L = true;
+$tn($v7);
+$o += ($L ? "<!-- -->" : "") + "”</p></blockquote><figcaption class=\"ns-review-meta\"><span class=\"ns-review-author\">";
+$L = false;
+$tn($v8);
+$o += "</span><time class=\"ns-review-date\">";
+$L = false;
+$tn($v10);
+$o += "</time></figcaption></figure>";
+$L = false;
+}
+}
+}
+function $T63($p0, $tc) {
+if ((!$p0)) {
+$fb(432);
+} else {
+const $v0 = $p0.length;
+if (($v0 === 0)) {
+
+} else {
+$o += "<dl class=\"ns-specs\">";
+$L = false;
+const $a1 = $p0;
+if (!Array.isArray($a1)) $fb(433);
+const $n1 = $a1.length;
+for (let $i1 = 0; $i1 < $n1; $i1++) $B64($a1[$i1], $i1, $a1, null);
+$o += "</dl>";
+$L = false;
+}
+}
+}
+function $T65($p0, $p1, $p2, $tc) {
+const $rC1 = $ctx[1];
+const $v0 = $p1.topReview;
+if ($v0) {
+const $v1 = $p1.sku;
+const $v2 = $p1.category;
+const $v3 = $p1.brand;
+const $v4 = $p1.title;
+const $v5 = $p1.rating;
+const $v6 = $p1.reviewCount;
+const $v7 = $p1.price;
+const $v8 = $p1.originalPrice;
+const $v9 = $p1.rebateAmount;
+const $v10 = $p1.stock;
+const $v11 = $p1.shipsAtSec;
+const $v12 = formatMoney($p0, $rC1);
+const $v13 = $p2.length;
+const $v14 = $tab8[(($v13 === 0) ? 1 : 0)];
+const $v15 = $p1.description;
+const $x16 = $es($v1);
+$o += "<section class=\"ns-pdp\"" + ($x16 !== null ? " data-sku=\"" + $x16 + "\"" : $at($v1, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 434)) + "><div class=\"ns-pdp-media\">";
+$L = false;
+$T25_4($v2, null);
+$T41($p1, null);
+const $tc17 = $push($tc, 2, 1);
+$o += "</div><div class=\"ns-pdp-info\"><p class=\"ns-pdp-brand\">";
+$L = false;
+$tn($v3);
+$o += "</p><h1 class=\"ns-pdp-title\">";
+$L = false;
+$tn($v4);
+$o += "</h1><div class=\"ns-pdp-meta\">";
+$L = false;
+$T42($v5, $v6, null);
+$o += "<span class=\"ns-pdp-sku\">SKU ";
+$L = true;
+if ($x16 !== null) $te($x16); else $tn($v1);
+const $tc18 = $push($tc17, 7, 3);
+$o += "</span></div><div class=\"ns-pdp-buy\">";
+$L = false;
+$T37_2($v8, $v7, $v9, null);
+$T38($v11, $v10, null);
+const $tc19 = $push($tc18, 4, 2);
+$T36_1($v1, $v10, $v4, $tc19);
+$o += "<ul class=\"ns-pdp-perks\"><li>Free shipping on orders over ";
+$L = true;
+$tn($v12);
+$o += "</li><li>30-day returns · 2-year warranty</li></ul></div><div class=\"" + $v14 + "\"><h2 class=\"ns-section-title\">Specifications</h2>";
+$L = false;
+$T63($p2, null);
+$o += "</div><div class=\"ns-pdp-section\"><h2 class=\"ns-section-title\">Description</h2><p class=\"ns-pdp-desc\">";
+$L = false;
+$tn($v15);
+$o += "</p></div><div class=\"ns-pdp-section\"><h2 class=\"ns-section-title\">Top review</h2>";
+$L = false;
+$T62($v0, null);
+$o += "</div></div></section>";
+$L = false;
+} else {
+const $v20 = $p1.sku;
+const $v21 = $p1.category;
+const $v22 = $p1.brand;
+const $v23 = $p1.title;
+const $v24 = $p1.rating;
+const $v25 = $p1.reviewCount;
+const $v26 = $p1.price;
+const $v27 = $p1.originalPrice;
+const $v28 = $p1.rebateAmount;
+const $v29 = $p1.stock;
+const $v30 = $p1.shipsAtSec;
+const $v31 = formatMoney($p0, $rC1);
+const $v32 = $p2.length;
+const $v33 = $tab8[(($v32 === 0) ? 1 : 0)];
+const $v34 = $p1.description;
+const $x35 = $es($v20);
+$o += "<section class=\"ns-pdp\"" + ($x35 !== null ? " data-sku=\"" + $x35 + "\"" : $at($v20, " data-sku=\"", "\"", " data-sku=\"true\"", " data-sku=\"false\"", "", 436)) + "><div class=\"ns-pdp-media\">";
+$L = false;
+$T25_4($v21, null);
+$T41($p1, null);
+const $tc36 = $push($tc, 2, 1);
+$o += "</div><div class=\"ns-pdp-info\"><p class=\"ns-pdp-brand\">";
+$L = false;
+$tn($v22);
+$o += "</p><h1 class=\"ns-pdp-title\">";
+$L = false;
+$tn($v23);
+$o += "</h1><div class=\"ns-pdp-meta\">";
+$L = false;
+$T42($v24, $v25, null);
+$o += "<span class=\"ns-pdp-sku\">SKU ";
+$L = true;
+if ($x35 !== null) $te($x35); else $tn($v20);
+const $tc37 = $push($tc36, 7, 3);
+$o += "</span></div><div class=\"ns-pdp-buy\">";
+$L = false;
+$T37_2($v27, $v26, $v28, null);
+$T38($v30, $v29, null);
+const $tc38 = $push($tc37, 4, 2);
+$T36_1($v20, $v29, $v23, $tc38);
+$o += "<ul class=\"ns-pdp-perks\"><li>Free shipping on orders over ";
+$L = true;
+$tn($v31);
+$o += "</li><li>30-day returns · 2-year warranty</li></ul></div><div class=\"" + $v33 + "\"><h2 class=\"ns-section-title\">Specifications</h2>";
+$L = false;
+$T63($p2, null);
+$o += "</div><div class=\"ns-pdp-section\"><h2 class=\"ns-section-title\">Description</h2><p class=\"ns-pdp-desc\">";
+$L = false;
+$tn($v34);
+$o += "</p></div></div></section>";
+$L = false;
+}
+}
+function $T66($p0, $p1, $p2, $p3, $tc) {
+const $v0 = $p2.length;
+if (($v0 > 0)) {
+const $v1 = $p0.freeShippingThreshold;
+const $tc2 = $push($tc, 2, 0);
+$o += "<div class=\"ns-product-page ns-container\">";
+$L = false;
+$T65($v1, $p1, $p3, $tc2);
+const $tc3 = $push($tc, 2, 1);
+const $tc4 = $push($tc3, 2, 1);
+$o += "<section class=\"ns-section\" aria-labelledby=\"ns-related-title\"><div class=\"ns-section-head\"><h2 class=\"ns-section-heading\" id=\"ns-related-title\">Related tools</h2></div>";
+$L = false;
+$T44_0($p2, $tc4);
+$o += "</section></div>";
+$L = false;
+} else {
+const $v5 = $p0.freeShippingThreshold;
+const $tc6 = $push($tc, 2, 0);
+$o += "<div class=\"ns-product-page ns-container\">";
+$L = false;
+$T65($v5, $p1, $p3, $tc6);
+$o += "</div>";
+$L = false;
+}
+}
+function $T67($tc) {
+const $rC2 = $ctx[2];
+const $rC3 = $ctx[3];
+const $rI0 = $id($tc, 0);
+const $rI1 = $id($tc, 1);
+if ($rC3) {
+const $v0 = $rC3.name;
+const $v1 = $rC3.avatarColor;
+const $v2 = $rC3.tier;
+const $v3 = $rC3.points;
+const $v4 = $rC2.base;
+$o += "<div class=\"ns-auth ns-container\"><section class=\"ns-auth-card\"><div class=\"ns-account\">";
+$L = false;
+$T13($v1, $v0, null);
+$o += "<div><h1 class=\"ns-auth-title\">";
+$L = false;
+$tn($v0);
+$o += "</h1><p class=\"ns-auth-sub\">Trade account ";
+$L = true;
+$T14($v3, $v2, null);
+$o += "</p></div></div><p class=\"ns-auth-note\">Your tier discount is applied to the cart automatically.</p><form method=\"post\" action=\"" + $e(($v4 + "/signout")) + "\"><button type=\"submit\" class=\"ns-btn ns-btn-secondary ns-btn-block\">Sign out</button></form></section></div>";
+$L = false;
+} else {
+const $v5 = $rC2.base;
+$o += "<div class=\"ns-auth ns-container\"><section class=\"ns-auth-card\"><h1 class=\"ns-auth-title\">Sign in</h1><p class=\"ns-auth-sub\">Use your trade account for team pricing and Net-30 terms.</p><form class=\"ns-auth-form\" method=\"post\" action=\"" + $e(($v5 + "/signin")) + "\"><input type=\"hidden\" name=\"back\" value=\"/\"/><label for=\"" + $rI0 + "\">Work email</label><input id=\"" + $rI0 + "\" type=\"email\" name=\"email\" autoComplete=\"username\" value=\"maya@linfabrication.com\"/><label for=\"" + $rI1 + "\">Password</label><input id=\"" + $rI1 + "\" type=\"password\" name=\"password\" autoComplete=\"current-password\" placeholder=\"Any password works in the demo\"/><button type=\"submit\" class=\"ns-btn ns-btn-primary ns-btn-lg ns-btn-block\">Sign in</button></form><p class=\"ns-auth-note\">Demo store: signing in uses a sample trade account, and no password is checked.</p></section></div>";
+$L = false;
+}
+}
+function $T68($p0, $tc) {
+const $rC0 = $ctx[0];
+const $rC1 = $ctx[1];
+const $rC2 = $ctx[2];
+const $rC3 = $ctx[3];
+const $v0 = $rC2.view;
+if (($v0 === "home")) {
+const $v1 = $p0.home;
+if ($v1) {
+const $v2 = $p0.cart;
+const $v3 = $hy_mk69($v2, $rC3)();
+const $v4 = $p0.products;
+const $v5 = $hy_mk70($v4)();
+const $v6 = $rC1.code;
+const $v7 = $p0.promo;
+const $v8 = $p0.search;
+const $v9 = $p0.categories;
+const $v10 = $v3.unitCount;
+const $v11 = $p0.flash;
+const $v12 = $p0.breadcrumbs;
+const $v13 = ("ns-shell ns-theme-" + $rC0);
+$o += "<div id=\"northstar-app\" class=\"" + $e($v13) + "\"" + $at($rC0, " data-theme=\"", "\"", " data-theme=\"true\"", " data-theme=\"false\"", "", 445) + $at($v6, " data-locale=\"", "\"", " data-locale=\"true\"", " data-locale=\"false\"", "", 446) + $at($v0, " data-view=\"", "\"", " data-view=\"true\"", " data-view=\"false\"", "", 447) + "><a class=\"ns-skip\" href=\"#ns-main\">Skip to content</a>";
+$L = false;
+$T5($v7, null);
+const $tc14 = $push($tc, 5, 2);
+$T22($v10, $v9, $v8, $tc14);
+const $tc15 = $push($tc, 5, 3);
+$o += "<main class=\"ns-main\" id=\"ns-main\">";
+$L = false;
+$T9($v11, null);
+$T6($v12, null);
+const $tc16 = $push($tc15, 3, 2);
+$T46($v2, $v9, $v1, $v4, $tc16);
+$o += "</main>";
+$L = false;
+$T10($v9, null);
+$o += "</div>";
+$L = false;
+} else {
+$fb(448);
+}
+} else {
+if (($v0 === "listing")) {
+const $v17 = $p0.listing;
+if ($v17) {
+const $v18 = $p0.cart;
+const $v19 = $hy_mk69($v18, $rC3)();
+const $v20 = $p0.products;
+const $v21 = $hy_mk70($v20)();
+const $v22 = $rC1.code;
+const $v23 = $p0.promo;
+const $v24 = $p0.search;
+const $v25 = $p0.categories;
+const $v26 = $v19.unitCount;
+const $v27 = $p0.flash;
+const $v28 = $p0.breadcrumbs;
+const $v29 = $p0.filters;
+const $v30 = $p0.activeFilters;
+const $v31 = ("ns-shell ns-theme-" + $rC0);
+$o += "<div id=\"northstar-app\" class=\"" + $e($v31) + "\"" + $at($rC0, " data-theme=\"", "\"", " data-theme=\"true\"", " data-theme=\"false\"", "", 450) + $at($v22, " data-locale=\"", "\"", " data-locale=\"true\"", " data-locale=\"false\"", "", 451) + $at($v0, " data-view=\"", "\"", " data-view=\"true\"", " data-view=\"false\"", "", 452) + "><a class=\"ns-skip\" href=\"#ns-main\">Skip to content</a>";
+$L = false;
+$T5($v23, null);
+const $tc32 = $push($tc, 5, 2);
+$T22($v26, $v25, $v24, $tc32);
+const $tc33 = $push($tc, 5, 3);
+$o += "<main class=\"ns-main\" id=\"ns-main\">";
+$L = false;
+$T9($v27, null);
+$T6($v28, null);
+const $tc34 = $push($tc33, 3, 2);
+$T59($v30, $v25, $v29, $v17, $v20, $v24, $v21, $tc34);
+$o += "</main>";
+$L = false;
+$T10($v25, null);
+$o += "</div>";
+$L = false;
+} else {
+$fb(453);
+}
+} else {
+if (($v0 === "product")) {
+const $v35 = $p0.product;
+if ($v35) {
+const $v36 = $p0.cart;
+const $v37 = $hy_mk69($v36, $rC3)();
+const $v38 = $p0.products;
+const $v39 = $hy_mk70($v38)();
+const $v40 = $rC1.code;
+const $v41 = $p0.promo;
+const $v42 = $p0.search;
+const $v43 = $p0.categories;
+const $v44 = $v37.unitCount;
+const $v45 = $p0.flash;
+const $v46 = $p0.breadcrumbs;
+const $v47 = $p0.specs;
+const $v48 = ("ns-shell ns-theme-" + $rC0);
+$o += "<div id=\"northstar-app\" class=\"" + $e($v48) + "\"" + $at($rC0, " data-theme=\"", "\"", " data-theme=\"true\"", " data-theme=\"false\"", "", 455) + $at($v40, " data-locale=\"", "\"", " data-locale=\"true\"", " data-locale=\"false\"", "", 456) + $at($v0, " data-view=\"", "\"", " data-view=\"true\"", " data-view=\"false\"", "", 457) + "><a class=\"ns-skip\" href=\"#ns-main\">Skip to content</a>";
+$L = false;
+$T5($v41, null);
+const $tc49 = $push($tc, 5, 2);
+$T22($v44, $v43, $v42, $tc49);
+const $tc50 = $push($tc, 5, 3);
+$o += "<main class=\"ns-main\" id=\"ns-main\">";
+$L = false;
+$T9($v45, null);
+$T6($v46, null);
+const $tc51 = $push($tc50, 3, 2);
+$T66($v36, $v35, $v38, $v47, $tc51);
+$o += "</main>";
+$L = false;
+$T10($v43, null);
+$o += "</div>";
+$L = false;
+} else {
+$fb(458);
+}
+} else {
+if (($v0 === "cart")) {
+const $v52 = $p0.cart;
+const $v53 = $hy_mk69($v52, $rC3)();
+const $v54 = $p0.products;
+const $v55 = $hy_mk70($v54)();
+const $v56 = $rC1.code;
+const $v57 = $p0.promo;
+const $v58 = $p0.search;
+const $v59 = $p0.categories;
+const $v60 = $v53.unitCount;
+const $v61 = $p0.flash;
+const $v62 = $p0.breadcrumbs;
+const $v63 = ("ns-shell ns-theme-" + $rC0);
+$o += "<div id=\"northstar-app\" class=\"" + $e($v63) + "\"" + $at($rC0, " data-theme=\"", "\"", " data-theme=\"true\"", " data-theme=\"false\"", "", 460) + $at($v56, " data-locale=\"", "\"", " data-locale=\"true\"", " data-locale=\"false\"", "", 461) + $at($v0, " data-view=\"", "\"", " data-view=\"true\"", " data-view=\"false\"", "", 462) + "><a class=\"ns-skip\" href=\"#ns-main\">Skip to content</a>";
+$L = false;
+$T5($v57, null);
+const $tc64 = $push($tc, 5, 2);
+$T22($v60, $v59, $v58, $tc64);
+const $tc65 = $push($tc, 5, 3);
+$o += "<main class=\"ns-main\" id=\"ns-main\">";
+$L = false;
+$T9($v61, null);
+$T6($v62, null);
+const $tc66 = $push($tc65, 3, 2);
+$T29($v52, $v53, $tc66);
+$o += "</main>";
+$L = false;
+$T10($v59, null);
+$o += "</div>";
+$L = false;
+} else {
+if (($v0 === "signin")) {
+const $v67 = $p0.cart;
+const $v68 = $hy_mk69($v67, $rC3)();
+const $v69 = $p0.products;
+const $v70 = $hy_mk70($v69)();
+const $v71 = $rC1.code;
+const $v72 = $p0.promo;
+const $v73 = $p0.search;
+const $v74 = $p0.categories;
+const $v75 = $v68.unitCount;
+const $v76 = $p0.flash;
+const $v77 = $p0.breadcrumbs;
+const $v78 = ("ns-shell ns-theme-" + $rC0);
+$o += "<div id=\"northstar-app\" class=\"" + $e($v78) + "\"" + $at($rC0, " data-theme=\"", "\"", " data-theme=\"true\"", " data-theme=\"false\"", "", 464) + $at($v71, " data-locale=\"", "\"", " data-locale=\"true\"", " data-locale=\"false\"", "", 465) + $at($v0, " data-view=\"", "\"", " data-view=\"true\"", " data-view=\"false\"", "", 466) + "><a class=\"ns-skip\" href=\"#ns-main\">Skip to content</a>";
+$L = false;
+$T5($v72, null);
+const $tc79 = $push($tc, 5, 2);
+$T22($v75, $v74, $v73, $tc79);
+const $tc80 = $push($tc, 5, 3);
+$o += "<main class=\"ns-main\" id=\"ns-main\">";
+$L = false;
+$T9($v76, null);
+$T6($v77, null);
+const $tc81 = $push($tc80, 3, 2);
+$T67($tc81);
+$o += "</main>";
+$L = false;
+$T10($v74, null);
+$o += "</div>";
+$L = false;
+} else {
+const $v82 = $p0.cart;
+const $v83 = $hy_mk69($v82, $rC3)();
+const $v84 = $p0.products;
+const $v85 = $hy_mk70($v84)();
+const $v86 = $rC1.code;
+const $v87 = $p0.promo;
+const $v88 = $p0.search;
+const $v89 = $p0.categories;
+const $v90 = $v83.unitCount;
+const $v91 = $p0.flash;
+const $v92 = $p0.breadcrumbs;
+const $v93 = ("ns-shell ns-theme-" + $rC0);
+$o += "<div id=\"northstar-app\" class=\"" + $e($v93) + "\"" + $at($rC0, " data-theme=\"", "\"", " data-theme=\"true\"", " data-theme=\"false\"", "", 468) + $at($v86, " data-locale=\"", "\"", " data-locale=\"true\"", " data-locale=\"false\"", "", 469) + $at($v0, " data-view=\"", "\"", " data-view=\"true\"", " data-view=\"false\"", "", 470) + "><a class=\"ns-skip\" href=\"#ns-main\">Skip to content</a>";
+$L = false;
+$T5($v87, null);
+const $tc94 = $push($tc, 5, 2);
+$T22($v90, $v89, $v88, $tc94);
+$o += "<main class=\"ns-main\" id=\"ns-main\">";
+$L = false;
+$T9($v91, null);
+$T6($v92, null);
+$T60($v89, null);
+$o += "</main>";
+$L = false;
+$T10($v89, null);
+$o += "</div>";
+$L = false;
+}
+}
+}
+}
+}
+}
+function $T71($p0, $tc) {
+const $v0 = $p0.theme;
+const $v1 = $p0.locale;
+const $v2 = $p0.user;
+const $v3 = $p0.nav;
+const $s4 = $ctx[0];
+$ctx[0] = $v0;
+const $s5 = $ctx[1];
+$ctx[1] = $v1;
+const $s6 = $ctx[3];
+$ctx[3] = $v2;
+const $s7 = $ctx[2];
+$ctx[2] = $v3;
+$T68($p0, $tc);
+$ctx[2] = $s7;
+$ctx[3] = $s6;
+$ctx[1] = $s5;
+$ctx[0] = $s4;
+}
+function $T8($p0, $p1, $tc) {
+if ($p1) {
+const $v0 = ("ns-icon ns-icon-" + $p0);
+switch ($acls($v0)) {
+case "v": {
+if ($p1 === 18) {
+const $v1 = PATHS[$p0];
+if ($v1 === "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5") {
+$o += "<svg class=\"" + $e($v0) + "\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5\"></path></svg>";
+$L = false;
+} else if ($v1 === "M5 12.5l4.5 4.5L19 7.5") {
+$o += "<svg class=\"" + $e($v0) + "\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"></path></svg>";
+$L = false;
+} else { $fb(471); }
+} else if ($p1 === 14) {
+const $v2 = PATHS[$p0];
+if ($v2 === "M6 6l12 12M18 6L6 18") {
+$o += "<svg class=\"" + $e($v0) + "\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M6 6l12 12M18 6L6 18\"></path></svg>";
+$L = false;
+} else { $fb(472); }
+} else if ($p1 === 22) {
+const $v3 = PATHS[$p0];
+if ($v3 === "M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z") {
+$o += "<svg class=\"" + $e($v0) + "\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z\"></path></svg>";
+$L = false;
+} else if ($v3 === "M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5") {
+$o += "<svg class=\"" + $e($v0) + "\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5\"></path></svg>";
+$L = false;
+} else if ($v3 === "M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3zM9 12l2 2 4-4") {
+$o += "<svg class=\"" + $e($v0) + "\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3zM9 12l2 2 4-4\"></path></svg>";
+$L = false;
+} else if ($v3 === "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2") {
+$o += "<svg class=\"" + $e($v0) + "\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2\"></path></svg>";
+$L = false;
+} else { $fb(473); }
+} else { $fb(474); }
+break;
+}
+default: $fb(475);
+}
+} else {
+const $v4 = ("ns-icon ns-icon-" + $p0);
+switch ($acls($v4)) {
+case "v": {
+const $v5 = PATHS[$p0];
+if ($v5 === "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z") {
+$o += "<svg class=\"" + $e($v4) + "\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z\"></path></svg>";
+$L = false;
+} else if ($v5 === "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0") {
+$o += "<svg class=\"" + $e($v4) + "\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0\"></path></svg>";
+$L = false;
+} else if ($v5 === "M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01") {
+$o += "<svg class=\"" + $e($v4) + "\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01\"></path></svg>";
+$L = false;
+} else if ($v5 === "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4") {
+$o += "<svg class=\"" + $e($v4) + "\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4\"></path></svg>";
+$L = false;
+} else { $fb(476); }
+break;
+}
+default: $fb(477);
+}
 }
 }
 function $T9($p0, $tc) {
-const $rC1 = $ctx[1];
 const $rC2 = $ctx[2];
-const $v0 = $p0.items;
-const $v1 = $v0.length;
-const $v2 = ($v1 === 0);
-if ((!$v2)) {
-if ($v2) {
-$fb(197);
+if ((!$p0)) {
+
 } else {
-const $v3 = $hy_mk10($p0, $rC2)();
-const $v4 = $v3.memberDiscount;
-const $v5 = ($v4 !== 0);
-if ($v5) {
-const $v6 = $p0.creditAdjustment;
-const $v7 = ($v6 !== 0);
-if ($v7) {
-const $v8 = $v3.shipping;
-const $v9 = ($v8 === 0);
-if ($v9) {
-const $v10 = $v3.unitCount;
-const $v11 = $v3.subtotal;
-const $v12 = formatMoney($v11, $rC1);
-const $v13 = formatMoney($v4, $rC1);
-const $v14 = formatMoney($v6, $rC1);
-const $v15 = $v3.tax;
-const $v16 = formatMoney($v15, $rC1);
-const $v17 = $v3.grandTotal;
-const $v18 = formatMoney($v17, $rC1);
-const $v19 = $p0.notesOpen;
-const $v20 = Boolean($v19);
-const $v21 = $p0.freeShippingThreshold;
-const $v22 = formatMoney($v21, $rC1);
-$o += "<aside class=\"ns-cart\"" + ($v2 ? " data-empty=\"true\"" : " data-empty=\"false\"") + "><h2 class=\"ns-cart-title\">Order Quote (";
+const $v0 = $p0.cartLink;
+if ($v0) {
+const $v1 = $p0.text;
+const $v2 = $rC2.base;
+$o += "<div class=\"ns-flash ns-container\" role=\"status\"><p class=\"ns-flash-inner\">";
+$L = false;
+$T8_10(null);
+$o += "<span class=\"ns-flash-text\">";
+$L = false;
+$tn($v1);
+$o += "</span><a class=\"ns-flash-link\" href=\"" + $e(($v2 + "/cart")) + "\">View cart</a></p></div>";
+$L = false;
+} else {
+const $v3 = $p0.text;
+$o += "<div class=\"ns-flash ns-container\" role=\"status\"><p class=\"ns-flash-inner\">";
+$L = false;
+$T8_10(null);
+$o += "<span class=\"ns-flash-text\">";
+$L = false;
+$tn($v3);
+$o += "</span></p></div>";
+$L = false;
+}
+}
+}
+function $T25_0($p0, $tc) {
+const $rC2 = $ctx[2];
+const $v0 = ("ns-art-cat-" + $p0);
+const $v1 = cx("ns-art", "ns-art-tile", $v0);
+const $v2 = $rC2.assets;
+const $v3 = ((($v2 + "/art/") + $p0) + ".svg");
+$o += "<div" + $at($v1, " class=\"", "\"", "", "", "", 479) + "><img src=\"" + $e((($v2 + "/art/") + $p0)) + ".svg\" alt=\"\" width=\"320\" height=\"240\" loading=\"lazy\" decoding=\"async\"/></div>";
+$L = false;
+}
+function $T8_0($tc) {
+const $v0 = PATHS.close;
+if ($v0 === "M6 6l12 12M18 6L6 18") {
+$o += "<svg class=\"ns-icon ns-icon-close\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M6 6l12 12M18 6L6 18\"></path></svg>";
+$L = false;
+} else { $fb(481); }
+}
+function $T8_1($tc) {
+const $v0 = PATHS.user;
+if ($v0 === "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z") {
+$o += "<svg class=\"ns-icon ns-icon-user\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0") {
+$o += "<svg class=\"ns-icon ns-icon-user\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0\"></path></svg>";
+$L = false;
+} else if ($v0 === "M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01") {
+$o += "<svg class=\"ns-icon ns-icon-user\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4") {
+$o += "<svg class=\"ns-icon ns-icon-user\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4\"></path></svg>";
+$L = false;
+} else { $fb(482); }
+}
+function $T8_2($tc) {
+const $v0 = PATHS.sun;
+if ($v0 === "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z") {
+$o += "<svg class=\"ns-icon ns-icon-sun\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0") {
+$o += "<svg class=\"ns-icon ns-icon-sun\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0\"></path></svg>";
+$L = false;
+} else if ($v0 === "M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01") {
+$o += "<svg class=\"ns-icon ns-icon-sun\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4") {
+$o += "<svg class=\"ns-icon ns-icon-sun\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4\"></path></svg>";
+$L = false;
+} else { $fb(483); }
+}
+function $T8_3($tc) {
+const $v0 = PATHS.moon;
+if ($v0 === "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z") {
+$o += "<svg class=\"ns-icon ns-icon-moon\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0") {
+$o += "<svg class=\"ns-icon ns-icon-moon\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0\"></path></svg>";
+$L = false;
+} else if ($v0 === "M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01") {
+$o += "<svg class=\"ns-icon ns-icon-moon\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4") {
+$o += "<svg class=\"ns-icon ns-icon-moon\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4\"></path></svg>";
+$L = false;
+} else { $fb(484); }
+}
+function $T8_4($tc) {
+const $v0 = PATHS.cart;
+if ($v0 === "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z") {
+$o += "<svg class=\"ns-icon ns-icon-cart\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0") {
+$o += "<svg class=\"ns-icon ns-icon-cart\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0\"></path></svg>";
+$L = false;
+} else if ($v0 === "M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01") {
+$o += "<svg class=\"ns-icon ns-icon-cart\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4") {
+$o += "<svg class=\"ns-icon ns-icon-cart\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4\"></path></svg>";
+$L = false;
+} else { $fb(485); }
+}
+function $T8_5($tc) {
+const $v0 = PATHS.search;
+if ($v0 === "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5") {
+$o += "<svg class=\"ns-icon ns-icon-search\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5\"></path></svg>";
+$L = false;
+} else if ($v0 === "M5 12.5l4.5 4.5L19 7.5") {
+$o += "<svg class=\"ns-icon ns-icon-search\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"></path></svg>";
+$L = false;
+} else { $fb(486); }
+}
+function $T25_1($p0, $tc) {
+const $rC2 = $ctx[2];
+const $v0 = ("ns-art-cat-" + $p0);
+const $v1 = cx("ns-art", "ns-art-thumb", $v0);
+const $v2 = $rC2.assets;
+const $v3 = ((($v2 + "/art/") + $p0) + ".svg");
+$o += "<div" + $at($v1, " class=\"", "\"", "", "", "", 487) + "><img src=\"" + $e((($v2 + "/art/") + $p0)) + ".svg\" alt=\"\" width=\"72\" height=\"54\" loading=\"lazy\" decoding=\"async\"/></div>";
+$L = false;
+}
+function $T27_0($tc) {
+$o += "<button type=\"button\" class=\"ns-btn ns-btn-primary ns-btn-lg ns-btn-block\" disabled=\"\" data-variant=\"primary\">Checkout</button>";
+$L = false;
+}
+function $T27_1($p2, $p3, $tc) {
+const $k0 = $okeys($p3);
+if (typeof $k0 !== "string" && $k0.length === 2 && $k0[0] === "data-add-sku" && $k0[1] === "aria-label") {
+const $v1 = Boolean($p2);
+const $v2 = $p3["data-add-sku"];
+const $v3 = $p3["aria-label"];
+$o += "<button" + $at($v2, " data-add-sku=\"", "\"", " data-add-sku=\"true\"", " data-add-sku=\"false\"", "", 489) + $at($v3, " aria-label=\"", "\"", " aria-label=\"true\"", " aria-label=\"false\"", "", 490) + " type=\"submit\" class=\"ns-btn ns-btn-primary ns-btn-lg\"" + ($v1 ? " disabled=\"\"" : "") + " data-variant=\"primary\">Add to cart</button>";
+$L = false;
+} else { $fb(492); }
+}
+function $T27_2($p2, $p3, $tc) {
+const $k0 = $okeys($p3);
+if (typeof $k0 !== "string" && $k0.length === 2 && $k0[0] === "data-add-sku" && $k0[1] === "aria-label") {
+const $v1 = Boolean($p2);
+const $v2 = $p3["data-add-sku"];
+const $v3 = $p3["aria-label"];
+$o += "<button" + $at($v2, " data-add-sku=\"", "\"", " data-add-sku=\"true\"", " data-add-sku=\"false\"", "", 493) + $at($v3, " aria-label=\"", "\"", " aria-label=\"true\"", " aria-label=\"false\"", "", 494) + " type=\"submit\" class=\"ns-btn ns-btn-secondary ns-btn-sm\"" + ($v1 ? " disabled=\"\"" : "") + " data-variant=\"secondary\">Add to cart</button>";
+$L = false;
+} else { $fb(496); }
+}
+function $T27_3($p2, $p3, $tc) {
+const $k0 = $okeys($p3);
+if (typeof $k0 !== "string" && $k0.length === 2 && $k0[0] === "data-add-sku" && $k0[1] === "aria-label") {
+const $v1 = Boolean($p2);
+const $v2 = $p3["data-add-sku"];
+const $v3 = $p3["aria-label"];
+$o += "<button" + $at($v2, " data-add-sku=\"", "\"", " data-add-sku=\"true\"", " data-add-sku=\"false\"", "", 497) + $at($v3, " aria-label=\"", "\"", " aria-label=\"true\"", " aria-label=\"false\"", "", 498) + " type=\"submit\" class=\"ns-btn ns-btn-primary ns-btn-lg\"" + ($v1 ? " disabled=\"\"" : "") + " data-variant=\"primary\">Out of stock</button>";
+$L = false;
+} else { $fb(500); }
+}
+function $T27_4($p2, $p3, $tc) {
+const $k0 = $okeys($p3);
+if (typeof $k0 !== "string" && $k0.length === 2 && $k0[0] === "data-add-sku" && $k0[1] === "aria-label") {
+const $v1 = Boolean($p2);
+const $v2 = $p3["data-add-sku"];
+const $v3 = $p3["aria-label"];
+$o += "<button" + $at($v2, " data-add-sku=\"", "\"", " data-add-sku=\"true\"", " data-add-sku=\"false\"", "", 501) + $at($v3, " aria-label=\"", "\"", " aria-label=\"true\"", " aria-label=\"false\"", "", 502) + " type=\"submit\" class=\"ns-btn ns-btn-secondary ns-btn-sm\"" + ($v1 ? " disabled=\"\"" : "") + " data-variant=\"secondary\">Out of stock</button>";
+$L = false;
+} else { $fb(504); }
+}
+function $T25_2($p0, $tc) {
+const $rC2 = $ctx[2];
+const $v0 = ("ns-art-cat-" + $p0);
+const $v1 = cx("ns-art", "ns-art-card", $v0);
+const $v2 = $rC2.assets;
+const $v3 = ((($v2 + "/art/") + $p0) + ".svg");
+$o += "<div" + $at($v1, " class=\"", "\"", "", "", "", 505) + "><img src=\"" + $e((($v2 + "/art/") + $p0)) + ".svg\" alt=\"\" width=\"320\" height=\"240\" decoding=\"async\"/></div>";
+$L = false;
+}
+function $T37_0($p1, $p2, $tc) {
+const $rC1 = $ctx[1];
+const $v0 = ((typeof $p1) === "number");
+if ($v0) {
+if (($p1 > $p2)) {
+const $v1 = ($p1 > 0);
+if ($v1) {
+const $v2 = ($p2 === 0);
+if ($v2) {
+$fb(507);
+} else {
+const $v3 = Math.round(((($p1 - $p2) / $p1) * 100));
+const $v4 = formatMoney($p2, $rC1);
+const $v5 = formatMoney($p1, $rC1);
+$o += "<div class=\"ns-price-block\"" + ($v1 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$L = false;
+$tn($v4);
+$o += "</span><del class=\"ns-price-orig\"><span class=\"ns-sr-only\">Was </span>";
+$L = false;
+$tn($v5);
+$o += "</del><span class=\"ns-price-save\">−";
 $L = true;
+$te(("" + $v3));
+$o += ($L ? "<!-- -->" : "") + "%</span></div>";
+$L = false;
+}
+} else {
+$fb(509);
+}
+} else {
+$fb(510);
+}
+} else {
+const $v6 = ($p2 === 0);
+if ($v6) {
+$o += "<div class=\"ns-price-block\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">Free</span></div>";
+$L = false;
+} else {
+const $v7 = formatMoney($p2, $rC1);
+$o += "<div class=\"ns-price-block\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$L = false;
+$tn($v7);
+$o += "</span></div>";
+$L = false;
+}
+}
+}
+function $T38_0($p1, $tc) {
+if (($p1 <= 0)) {
+$o += "<p class=\"ns-stock ns-stock-out\" data-stock-state=\"out\">Out of stock</p>";
+$L = false;
+} else {
+if (($p1 <= 5)) {
+$o += "<p class=\"ns-stock ns-stock-low\" data-stock-state=\"low\">Only ";
+$L = true;
+$tn($p1);
+$o += ($L ? "<!-- -->" : "") + " left</p>";
+$L = false;
+} else {
+$o += "<p class=\"ns-stock ns-stock-in\" data-stock-state=\"in\">In stock</p>";
+$L = false;
+}
+}
+}
+function $T36_0($p0, $p1, $p2, $tc) {
+const $rC2 = $ctx[2];
+const $rI0 = $id($tc, 0);
+const $v0 = ($p1 > 0);
+if ($v0) {
+const $v1 = $rC2.base;
+const $v2 = $rC2.current;
+const $v3 = ($v1 + "/cart/add");
+const $v4 = (!$v0);
+const $v5 = ({"data-add-sku": $p0, "aria-label": ("Add to cart: " + $p2)});
+$o += "<form class=\"ns-add\" method=\"post\" action=\"" + $e($v3) + "\"><input type=\"hidden\" name=\"sku\"" + $at($p0, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 514) + "/><input type=\"hidden\" name=\"back\"" + $at($v2, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 515) + "/>";
+$L = false;
+$T27_2($v4, $v5, null);
+$o += "</form>";
+$L = false;
+} else {
+const $v6 = $rC2.base;
+const $v7 = $rC2.current;
+const $v8 = ($v6 + "/cart/add");
+const $v9 = (!$v0);
+const $v10 = ({"data-add-sku": $p0, "aria-label": ("Out of stock: " + $p2)});
+$o += "<form class=\"ns-add\" method=\"post\" action=\"" + $e($v8) + "\"><input type=\"hidden\" name=\"sku\"" + $at($p0, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 517) + "/><input type=\"hidden\" name=\"back\"" + $at($v7, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 518) + "/>";
+$L = false;
+$T27_4($v9, $v10, null);
+$o += "</form>";
+$L = false;
+}
+}
+function $T8_6($tc) {
+const $v0 = PATHS.truck;
+if ($v0 === "M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z") {
+$o += "<svg class=\"ns-icon ns-icon-truck\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z\"></path></svg>";
+$L = false;
+} else if ($v0 === "M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5") {
+$o += "<svg class=\"ns-icon ns-icon-truck\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3zM9 12l2 2 4-4") {
+$o += "<svg class=\"ns-icon ns-icon-truck\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3zM9 12l2 2 4-4\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2") {
+$o += "<svg class=\"ns-icon ns-icon-truck\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2\"></path></svg>";
+$L = false;
+} else { $fb(519); }
+}
+function $T8_7($tc) {
+const $v0 = PATHS.doc;
+if ($v0 === "M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z") {
+$o += "<svg class=\"ns-icon ns-icon-doc\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z\"></path></svg>";
+$L = false;
+} else if ($v0 === "M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5") {
+$o += "<svg class=\"ns-icon ns-icon-doc\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3zM9 12l2 2 4-4") {
+$o += "<svg class=\"ns-icon ns-icon-doc\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3zM9 12l2 2 4-4\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2") {
+$o += "<svg class=\"ns-icon ns-icon-doc\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2\"></path></svg>";
+$L = false;
+} else { $fb(520); }
+}
+function $T8_8($tc) {
+const $v0 = PATHS.shield;
+if ($v0 === "M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z") {
+$o += "<svg class=\"ns-icon ns-icon-shield\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z\"></path></svg>";
+$L = false;
+} else if ($v0 === "M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5") {
+$o += "<svg class=\"ns-icon ns-icon-shield\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3zM9 12l2 2 4-4") {
+$o += "<svg class=\"ns-icon ns-icon-shield\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3zM9 12l2 2 4-4\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2") {
+$o += "<svg class=\"ns-icon ns-icon-shield\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2\"></path></svg>";
+$L = false;
+} else { $fb(521); }
+}
+function $T8_9($tc) {
+const $v0 = PATHS.clock;
+if ($v0 === "M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z") {
+$o += "<svg class=\"ns-icon ns-icon-clock\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z\"></path></svg>";
+$L = false;
+} else if ($v0 === "M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5") {
+$o += "<svg class=\"ns-icon ns-icon-clock\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3zM9 12l2 2 4-4") {
+$o += "<svg class=\"ns-icon ns-icon-clock\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3zM9 12l2 2 4-4\"></path></svg>";
+$L = false;
+} else if ($v0 === "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2") {
+$o += "<svg class=\"ns-icon ns-icon-clock\" width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2\"></path></svg>";
+$L = false;
+} else { $fb(522); }
+}
+function $T25_3($p0, $p1, $tc) {
+const $rC2 = $ctx[2];
+if ($p1) {
+const $v0 = ("ns-art-cat-" + $p0);
+const $v1 = cx("ns-art", "ns-art-card", $v0);
+const $v2 = $rC2.assets;
+const $v3 = ((($v2 + "/art/") + $p0) + ".svg");
+$o += "<div" + $at($v1, " class=\"", "\"", "", "", "", 523) + "><img src=\"" + $e((($v2 + "/art/") + $p0)) + ".svg\" alt=\"\" width=\"320\" height=\"240\" decoding=\"async\"/></div>";
+$L = false;
+} else {
+const $v4 = ("ns-art-cat-" + $p0);
+const $v5 = cx("ns-art", "ns-art-card", $v4);
+const $v6 = $rC2.assets;
+const $v7 = ((($v6 + "/art/") + $p0) + ".svg");
+$o += "<div" + $at($v5, " class=\"", "\"", "", "", "", 525) + "><img src=\"" + $e((($v6 + "/art/") + $p0)) + ".svg\" alt=\"\" width=\"320\" height=\"240\" loading=\"lazy\" decoding=\"async\"/></div>";
+$L = false;
+}
+}
+function $T37_1($p1, $p2, $p3, $tc) {
+const $rC1 = $ctx[1];
+const $v0 = ((typeof $p1) === "number");
+if ($v0) {
+if (($p1 > $p2)) {
+const $v1 = ($p1 > 0);
+if ($v1) {
+const $v2 = ($p2 === 0);
+if ($v2) {
+$fb(527);
+} else {
+const $v3 = ((typeof $p3) === "number");
+if ($v3) {
+const $v4 = ($p3 !== 0);
+if ($v4) {
+const $v5 = Math.round(((($p1 - $p2) / $p1) * 100));
+const $v6 = formatMoney($p2, $rC1);
+const $v7 = formatMoney($p1, $rC1);
+const $v8 = formatMoney($p3, $rC1);
+$o += "<div class=\"ns-price-block\"" + ($v1 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$L = false;
+$tn($v6);
+$o += "</span><del class=\"ns-price-orig\"><span class=\"ns-sr-only\">Was </span>";
+$L = false;
+$tn($v7);
+$o += "</del><span class=\"ns-price-save\">−";
+$L = true;
+$te(("" + $v5));
+$o += ($L ? "<!-- -->" : "") + "%</span><span class=\"ns-price-rebate\">";
+$L = false;
+$tn($v8);
+$o += ($L ? "<!-- -->" : "") + " mail-in rebate</span></div>";
+$L = false;
+} else {
+$fb(529);
+}
+} else {
+const $v9 = Math.round(((($p1 - $p2) / $p1) * 100));
+const $v10 = formatMoney($p2, $rC1);
+const $v11 = formatMoney($p1, $rC1);
+$o += "<div class=\"ns-price-block\"" + ($v1 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$L = false;
 $tn($v10);
-$o += ($L ? "<!-- -->" : "") + ")</h2><ul class=\"ns-cart-list\">";
+$o += "</span><del class=\"ns-price-orig\"><span class=\"ns-sr-only\">Was </span>";
 $L = false;
-const $a23 = $v0;
-if (!Array.isArray($a23)) $fb(199);
-const $n23 = $a23.length;
-for (let $i23 = 0; $i23 < $n23; $i23++) $B11($a23[$i23], $i23, $a23, null);
-$o += "</ul><dl class=\"ns-cart-totals\"><dt>Subtotal</dt><dd>";
+$tn($v11);
+$o += "</del><span class=\"ns-price-save\">−";
+$L = true;
+$te(("" + $v9));
+$o += ($L ? "<!-- -->" : "") + "%</span></div>";
 $L = false;
-$tn($v12);
-$o += "</dd><dt>Member Discount</dt><dd>";
+}
+}
+} else {
+$fb(531);
+}
+} else {
+$fb(532);
+}
+} else {
+const $v12 = ($p2 === 0);
+if ($v12) {
+const $v13 = ((typeof $p3) === "number");
+if ($v13) {
+const $v14 = ($p3 !== 0);
+if ($v14) {
+const $v15 = formatMoney($p3, $rC1);
+$o += "<div class=\"ns-price-block\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">Free</span><span class=\"ns-price-rebate\">";
 $L = false;
-$tn($v13);
-$o += "</dd><dt>Account Credit</dt><dd>";
+$tn($v15);
+$o += ($L ? "<!-- -->" : "") + " mail-in rebate</span></div>";
 $L = false;
-$tn($v14);
-$o += "</dd><dt>Shipping</dt><dd>FREE</dd><dt>Est. Tax</dt><dd>";
+} else {
+$fb(534);
+}
+} else {
+$o += "<div class=\"ns-price-block\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">Free</span></div>";
 $L = false;
-$tn($v16);
-$o += "</dd><dt class=\"ns-cart-grand-label\">Total</dt><dd class=\"ns-cart-grand-val\">";
+}
+} else {
+const $v16 = ((typeof $p3) === "number");
+if ($v16) {
+const $v17 = ($p3 !== 0);
+if ($v17) {
+const $v18 = formatMoney($p2, $rC1);
+const $v19 = formatMoney($p3, $rC1);
+$o += "<div class=\"ns-price-block\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
 $L = false;
 $tn($v18);
-$o += "</dd></dl><details class=\"ns-cart-notes\"" + ($v20 ? " open=\"\"" : "") + "><summary>Freight &amp; Net-30 Terms</summary><p>Orders above ";
-$L = true;
-$tn($v22);
-$o += ($L ? "<!-- -->" : "") + " ship free.</p></details>";
+$o += "</span><span class=\"ns-price-rebate\">";
 $L = false;
-$T7_5($v2, null);
-$o += "</aside>";
+$tn($v19);
+$o += ($L ? "<!-- -->" : "") + " mail-in rebate</span></div>";
 $L = false;
 } else {
-const $v24 = $v3.unitCount;
-const $v25 = $v3.subtotal;
-const $v26 = formatMoney($v25, $rC1);
-const $v27 = formatMoney($v4, $rC1);
-const $v28 = formatMoney($v6, $rC1);
-const $v29 = formatMoney($v8, $rC1);
-const $v30 = $v3.tax;
-const $v31 = formatMoney($v30, $rC1);
-const $v32 = $v3.grandTotal;
-const $v33 = formatMoney($v32, $rC1);
-const $v34 = $p0.notesOpen;
-const $v35 = Boolean($v34);
-const $v36 = $p0.freeShippingThreshold;
-const $v37 = formatMoney($v36, $rC1);
-$o += "<aside class=\"ns-cart\"" + ($v2 ? " data-empty=\"true\"" : " data-empty=\"false\"") + "><h2 class=\"ns-cart-title\">Order Quote (";
-$L = true;
-$tn($v24);
-$o += ($L ? "<!-- -->" : "") + ")</h2><ul class=\"ns-cart-list\">";
-$L = false;
-const $a38 = $v0;
-if (!Array.isArray($a38)) $fb(202);
-const $n38 = $a38.length;
-for (let $i38 = 0; $i38 < $n38; $i38++) $B11($a38[$i38], $i38, $a38, null);
-$o += "</ul><dl class=\"ns-cart-totals\"><dt>Subtotal</dt><dd>";
-$L = false;
-$tn($v26);
-$o += "</dd><dt>Member Discount</dt><dd>";
-$L = false;
-$tn($v27);
-$o += "</dd><dt>Account Credit</dt><dd>";
-$L = false;
-$tn($v28);
-$o += "</dd><dt>Shipping</dt><dd>";
-$L = false;
-$tn($v29);
-$o += "</dd><dt>Est. Tax</dt><dd>";
-$L = false;
-$tn($v31);
-$o += "</dd><dt class=\"ns-cart-grand-label\">Total</dt><dd class=\"ns-cart-grand-val\">";
-$L = false;
-$tn($v33);
-$o += "</dd></dl><details class=\"ns-cart-notes\"" + ($v35 ? " open=\"\"" : "") + "><summary>Freight &amp; Net-30 Terms</summary><p>Orders above ";
-$L = true;
-$tn($v37);
-$o += ($L ? "<!-- -->" : "") + " ship free.</p></details>";
-$L = false;
-$T7_5($v2, null);
-$o += "</aside>";
-$L = false;
+$fb(537);
 }
 } else {
-const $v39 = $v3.shipping;
-const $v40 = ($v39 === 0);
-if ($v40) {
-const $v41 = $v3.unitCount;
-const $v42 = $v3.subtotal;
-const $v43 = formatMoney($v42, $rC1);
-const $v44 = formatMoney($v4, $rC1);
-const $v45 = $v3.tax;
-const $v46 = formatMoney($v45, $rC1);
-const $v47 = $v3.grandTotal;
-const $v48 = formatMoney($v47, $rC1);
-const $v49 = $p0.notesOpen;
-const $v50 = Boolean($v49);
-const $v51 = $p0.freeShippingThreshold;
-const $v52 = formatMoney($v51, $rC1);
-$o += "<aside class=\"ns-cart\"" + ($v2 ? " data-empty=\"true\"" : " data-empty=\"false\"") + "><h2 class=\"ns-cart-title\">Order Quote (";
-$L = true;
-$tn($v41);
-$o += ($L ? "<!-- -->" : "") + ")</h2><ul class=\"ns-cart-list\">";
+const $v20 = formatMoney($p2, $rC1);
+$o += "<div class=\"ns-price-block\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
 $L = false;
-const $a53 = $v0;
-if (!Array.isArray($a53)) $fb(205);
-const $n53 = $a53.length;
-for (let $i53 = 0; $i53 < $n53; $i53++) $B11($a53[$i53], $i53, $a53, null);
-$o += "</ul><dl class=\"ns-cart-totals\"><dt>Subtotal</dt><dd>";
-$L = false;
-$tn($v43);
-$o += "</dd><dt>Member Discount</dt><dd>";
-$L = false;
-$tn($v44);
-$o += "</dd><dt>Shipping</dt><dd>FREE</dd><dt>Est. Tax</dt><dd>";
-$L = false;
-$tn($v46);
-$o += "</dd><dt class=\"ns-cart-grand-label\">Total</dt><dd class=\"ns-cart-grand-val\">";
-$L = false;
-$tn($v48);
-$o += "</dd></dl><details class=\"ns-cart-notes\"" + ($v50 ? " open=\"\"" : "") + "><summary>Freight &amp; Net-30 Terms</summary><p>Orders above ";
-$L = true;
-$tn($v52);
-$o += ($L ? "<!-- -->" : "") + " ship free.</p></details>";
-$L = false;
-$T7_5($v2, null);
-$o += "</aside>";
-$L = false;
-} else {
-const $v54 = $v3.unitCount;
-const $v55 = $v3.subtotal;
-const $v56 = formatMoney($v55, $rC1);
-const $v57 = formatMoney($v4, $rC1);
-const $v58 = formatMoney($v39, $rC1);
-const $v59 = $v3.tax;
-const $v60 = formatMoney($v59, $rC1);
-const $v61 = $v3.grandTotal;
-const $v62 = formatMoney($v61, $rC1);
-const $v63 = $p0.notesOpen;
-const $v64 = Boolean($v63);
-const $v65 = $p0.freeShippingThreshold;
-const $v66 = formatMoney($v65, $rC1);
-$o += "<aside class=\"ns-cart\"" + ($v2 ? " data-empty=\"true\"" : " data-empty=\"false\"") + "><h2 class=\"ns-cart-title\">Order Quote (";
-$L = true;
-$tn($v54);
-$o += ($L ? "<!-- -->" : "") + ")</h2><ul class=\"ns-cart-list\">";
-$L = false;
-const $a67 = $v0;
-if (!Array.isArray($a67)) $fb(208);
-const $n67 = $a67.length;
-for (let $i67 = 0; $i67 < $n67; $i67++) $B11($a67[$i67], $i67, $a67, null);
-$o += "</ul><dl class=\"ns-cart-totals\"><dt>Subtotal</dt><dd>";
-$L = false;
-$tn($v56);
-$o += "</dd><dt>Member Discount</dt><dd>";
-$L = false;
-$tn($v57);
-$o += "</dd><dt>Shipping</dt><dd>";
-$L = false;
-$tn($v58);
-$o += "</dd><dt>Est. Tax</dt><dd>";
-$L = false;
-$tn($v60);
-$o += "</dd><dt class=\"ns-cart-grand-label\">Total</dt><dd class=\"ns-cart-grand-val\">";
-$L = false;
-$tn($v62);
-$o += "</dd></dl><details class=\"ns-cart-notes\"" + ($v64 ? " open=\"\"" : "") + "><summary>Freight &amp; Net-30 Terms</summary><p>Orders above ";
-$L = true;
-$tn($v66);
-$o += ($L ? "<!-- -->" : "") + " ship free.</p></details>";
-$L = false;
-$T7_5($v2, null);
-$o += "</aside>";
-$L = false;
-}
-}
-} else {
-const $v68 = $p0.creditAdjustment;
-const $v69 = ($v68 !== 0);
-if ($v69) {
-const $v70 = $v3.shipping;
-const $v71 = ($v70 === 0);
-if ($v71) {
-const $v72 = $v3.unitCount;
-const $v73 = $v3.subtotal;
-const $v74 = formatMoney($v73, $rC1);
-const $v75 = formatMoney($v68, $rC1);
-const $v76 = $v3.tax;
-const $v77 = formatMoney($v76, $rC1);
-const $v78 = $v3.grandTotal;
-const $v79 = formatMoney($v78, $rC1);
-const $v80 = $p0.notesOpen;
-const $v81 = Boolean($v80);
-const $v82 = $p0.freeShippingThreshold;
-const $v83 = formatMoney($v82, $rC1);
-$o += "<aside class=\"ns-cart\"" + ($v2 ? " data-empty=\"true\"" : " data-empty=\"false\"") + "><h2 class=\"ns-cart-title\">Order Quote (";
-$L = true;
-$tn($v72);
-$o += ($L ? "<!-- -->" : "") + ")</h2><ul class=\"ns-cart-list\">";
-$L = false;
-const $a84 = $v0;
-if (!Array.isArray($a84)) $fb(211);
-const $n84 = $a84.length;
-for (let $i84 = 0; $i84 < $n84; $i84++) $B11($a84[$i84], $i84, $a84, null);
-$o += "</ul><dl class=\"ns-cart-totals\"><dt>Subtotal</dt><dd>";
-$L = false;
-$tn($v74);
-$o += "</dd><dt>Account Credit</dt><dd>";
-$L = false;
-$tn($v75);
-$o += "</dd><dt>Shipping</dt><dd>FREE</dd><dt>Est. Tax</dt><dd>";
-$L = false;
-$tn($v77);
-$o += "</dd><dt class=\"ns-cart-grand-label\">Total</dt><dd class=\"ns-cart-grand-val\">";
-$L = false;
-$tn($v79);
-$o += "</dd></dl><details class=\"ns-cart-notes\"" + ($v81 ? " open=\"\"" : "") + "><summary>Freight &amp; Net-30 Terms</summary><p>Orders above ";
-$L = true;
-$tn($v83);
-$o += ($L ? "<!-- -->" : "") + " ship free.</p></details>";
-$L = false;
-$T7_5($v2, null);
-$o += "</aside>";
-$L = false;
-} else {
-const $v85 = $v3.unitCount;
-const $v86 = $v3.subtotal;
-const $v87 = formatMoney($v86, $rC1);
-const $v88 = formatMoney($v68, $rC1);
-const $v89 = formatMoney($v70, $rC1);
-const $v90 = $v3.tax;
-const $v91 = formatMoney($v90, $rC1);
-const $v92 = $v3.grandTotal;
-const $v93 = formatMoney($v92, $rC1);
-const $v94 = $p0.notesOpen;
-const $v95 = Boolean($v94);
-const $v96 = $p0.freeShippingThreshold;
-const $v97 = formatMoney($v96, $rC1);
-$o += "<aside class=\"ns-cart\"" + ($v2 ? " data-empty=\"true\"" : " data-empty=\"false\"") + "><h2 class=\"ns-cart-title\">Order Quote (";
-$L = true;
-$tn($v85);
-$o += ($L ? "<!-- -->" : "") + ")</h2><ul class=\"ns-cart-list\">";
-$L = false;
-const $a98 = $v0;
-if (!Array.isArray($a98)) $fb(214);
-const $n98 = $a98.length;
-for (let $i98 = 0; $i98 < $n98; $i98++) $B11($a98[$i98], $i98, $a98, null);
-$o += "</ul><dl class=\"ns-cart-totals\"><dt>Subtotal</dt><dd>";
-$L = false;
-$tn($v87);
-$o += "</dd><dt>Account Credit</dt><dd>";
-$L = false;
-$tn($v88);
-$o += "</dd><dt>Shipping</dt><dd>";
-$L = false;
-$tn($v89);
-$o += "</dd><dt>Est. Tax</dt><dd>";
-$L = false;
-$tn($v91);
-$o += "</dd><dt class=\"ns-cart-grand-label\">Total</dt><dd class=\"ns-cart-grand-val\">";
-$L = false;
-$tn($v93);
-$o += "</dd></dl><details class=\"ns-cart-notes\"" + ($v95 ? " open=\"\"" : "") + "><summary>Freight &amp; Net-30 Terms</summary><p>Orders above ";
-$L = true;
-$tn($v97);
-$o += ($L ? "<!-- -->" : "") + " ship free.</p></details>";
-$L = false;
-$T7_5($v2, null);
-$o += "</aside>";
-$L = false;
-}
-} else {
-const $v99 = $v3.shipping;
-const $v100 = ($v99 === 0);
-if ($v100) {
-const $v101 = $v3.unitCount;
-const $v102 = $v3.subtotal;
-const $v103 = formatMoney($v102, $rC1);
-const $v104 = $v3.tax;
-const $v105 = formatMoney($v104, $rC1);
-const $v106 = $v3.grandTotal;
-const $v107 = formatMoney($v106, $rC1);
-const $v108 = $p0.notesOpen;
-const $v109 = Boolean($v108);
-const $v110 = $p0.freeShippingThreshold;
-const $v111 = formatMoney($v110, $rC1);
-$o += "<aside class=\"ns-cart\"" + ($v2 ? " data-empty=\"true\"" : " data-empty=\"false\"") + "><h2 class=\"ns-cart-title\">Order Quote (";
-$L = true;
-$tn($v101);
-$o += ($L ? "<!-- -->" : "") + ")</h2><ul class=\"ns-cart-list\">";
-$L = false;
-const $a112 = $v0;
-if (!Array.isArray($a112)) $fb(217);
-const $n112 = $a112.length;
-for (let $i112 = 0; $i112 < $n112; $i112++) $B11($a112[$i112], $i112, $a112, null);
-$o += "</ul><dl class=\"ns-cart-totals\"><dt>Subtotal</dt><dd>";
-$L = false;
-$tn($v103);
-$o += "</dd><dt>Shipping</dt><dd>FREE</dd><dt>Est. Tax</dt><dd>";
-$L = false;
-$tn($v105);
-$o += "</dd><dt class=\"ns-cart-grand-label\">Total</dt><dd class=\"ns-cart-grand-val\">";
-$L = false;
-$tn($v107);
-$o += "</dd></dl><details class=\"ns-cart-notes\"" + ($v109 ? " open=\"\"" : "") + "><summary>Freight &amp; Net-30 Terms</summary><p>Orders above ";
-$L = true;
-$tn($v111);
-$o += ($L ? "<!-- -->" : "") + " ship free.</p></details>";
-$L = false;
-$T7_5($v2, null);
-$o += "</aside>";
-$L = false;
-} else {
-const $v113 = $v3.unitCount;
-const $v114 = $v3.subtotal;
-const $v115 = formatMoney($v114, $rC1);
-const $v116 = formatMoney($v99, $rC1);
-const $v117 = $v3.tax;
-const $v118 = formatMoney($v117, $rC1);
-const $v119 = $v3.grandTotal;
-const $v120 = formatMoney($v119, $rC1);
-const $v121 = $p0.notesOpen;
-const $v122 = Boolean($v121);
-const $v123 = $p0.freeShippingThreshold;
-const $v124 = formatMoney($v123, $rC1);
-$o += "<aside class=\"ns-cart\"" + ($v2 ? " data-empty=\"true\"" : " data-empty=\"false\"") + "><h2 class=\"ns-cart-title\">Order Quote (";
-$L = true;
-$tn($v113);
-$o += ($L ? "<!-- -->" : "") + ")</h2><ul class=\"ns-cart-list\">";
-$L = false;
-const $a125 = $v0;
-if (!Array.isArray($a125)) $fb(220);
-const $n125 = $a125.length;
-for (let $i125 = 0; $i125 < $n125; $i125++) $B11($a125[$i125], $i125, $a125, null);
-$o += "</ul><dl class=\"ns-cart-totals\"><dt>Subtotal</dt><dd>";
-$L = false;
-$tn($v115);
-$o += "</dd><dt>Shipping</dt><dd>";
-$L = false;
-$tn($v116);
-$o += "</dd><dt>Est. Tax</dt><dd>";
-$L = false;
-$tn($v118);
-$o += "</dd><dt class=\"ns-cart-grand-label\">Total</dt><dd class=\"ns-cart-grand-val\">";
-$L = false;
-$tn($v120);
-$o += "</dd></dl><details class=\"ns-cart-notes\"" + ($v122 ? " open=\"\"" : "") + "><summary>Freight &amp; Net-30 Terms</summary><p>Orders above ";
-$L = true;
-$tn($v124);
-$o += ($L ? "<!-- -->" : "") + " ship free.</p></details>";
-$L = false;
-$T7_5($v2, null);
-$o += "</aside>";
+$tn($v20);
+$o += "</span></div>";
 $L = false;
 }
 }
 }
 }
-} else {
-if ($v2) {
-const $v126 = $p0.creditAdjustment;
-const $v127 = ($v126 !== 0);
-if ($v127) {
-const $v128 = $hy_mk10($p0, $rC2)();
-const $v129 = $v128.memberDiscount;
-const $v130 = ($v129 !== 0);
-if ($v130) {
-$fb(222);
-} else {
-const $v131 = $v128.shipping;
-const $v132 = ($v131 === 0);
-if ($v132) {
-const $v133 = $v128.unitCount;
-const $v134 = $v128.subtotal;
-const $v135 = formatMoney($v134, $rC1);
-const $v136 = formatMoney($v126, $rC1);
-const $v137 = $v128.tax;
-const $v138 = formatMoney($v137, $rC1);
-const $v139 = $v128.grandTotal;
-const $v140 = formatMoney($v139, $rC1);
-const $v141 = $p0.notesOpen;
-const $v142 = Boolean($v141);
-const $v143 = $p0.freeShippingThreshold;
-const $v144 = formatMoney($v143, $rC1);
-$o += "<aside class=\"ns-cart\"" + ($v2 ? " data-empty=\"true\"" : " data-empty=\"false\"") + "><h2 class=\"ns-cart-title\">Order Quote (";
-$L = true;
-$tn($v133);
-$o += ($L ? "<!-- -->" : "") + ")</h2><p class=\"ns-cart-empty\">Your quote list is empty.</p><dl class=\"ns-cart-totals\"><dt>Subtotal</dt><dd>";
+function $T44_0($p1, $tc) {
+const $v0 = $p1.length;
+$o += "<div class=\"ns-grid ns-grid-4\"" + $at($v0, " data-count=\"", "\"", " data-count=\"true\"", " data-count=\"false\"", "", 539) + ">";
 $L = false;
-$tn($v135);
-$o += "</dd><dt>Account Credit</dt><dd>";
-$L = false;
-$tn($v136);
-$o += "</dd><dt>Shipping</dt><dd>FREE</dd><dt>Est. Tax</dt><dd>";
-$L = false;
-$tn($v138);
-$o += "</dd><dt class=\"ns-cart-grand-label\">Total</dt><dd class=\"ns-cart-grand-val\">";
-$L = false;
-$tn($v140);
-$o += "</dd></dl><details class=\"ns-cart-notes\"" + ($v142 ? " open=\"\"" : "") + "><summary>Freight &amp; Net-30 Terms</summary><p>Orders above ";
-$L = true;
-$tn($v144);
-$o += ($L ? "<!-- -->" : "") + " ship free.</p></details>";
-$L = false;
-$T7_5($v2, null);
-$o += "</aside>";
-$L = false;
-} else {
-$fb(225);
-}
-}
-} else {
-const $v145 = $hy_mk10($p0, $rC2)();
-const $v146 = $v145.unitCount;
-const $v147 = $p0.notesOpen;
-const $v148 = Boolean($v147);
-const $v149 = $p0.freeShippingThreshold;
-const $v150 = formatMoney($v149, $rC1);
-$o += "<aside class=\"ns-cart\"" + ($v2 ? " data-empty=\"true\"" : " data-empty=\"false\"") + "><h2 class=\"ns-cart-title\">Order Quote (";
-$L = true;
-$tn($v146);
-$o += ($L ? "<!-- -->" : "") + ")</h2><p class=\"ns-cart-empty\">Your quote list is empty.</p><details class=\"ns-cart-notes\"" + ($v148 ? " open=\"\"" : "") + "><summary>Freight &amp; Net-30 Terms</summary><p>Orders above ";
-$L = true;
-$tn($v150);
-$o += ($L ? "<!-- -->" : "") + " ship free.</p></details>";
-$L = false;
-$T7_5($v2, null);
-$o += "</aside>";
+const $a1 = $p1;
+if (!Array.isArray($a1)) $fb(540);
+const $n1 = $a1.length;
+for (let $i1 = 0; $i1 < $n1; $i1++) $B45($a1[$i1], $i1, $a1, $push($tc, $n1, $i1));
+$o += "</div>";
 $L = false;
 }
-} else {
-$fb(228);
-}
-}
-}
-function $T15_0($p0, $tc) {
+function $T51_0($p0, $tc) {
 const $rC1 = $ctx[1];
 const $v0 = $rC1.groupSep;
 const $v1 = formatInt($p0, $v0);
@@ -3111,119 +6092,212 @@ $tn($v1);
 $o += "</span>";
 $L = false;
 }
-function $T7_0($p2, $tc) {
-const $v0 = Boolean($p2);
-$o += "<button data-action=\"catalog-search\" aria-label=\"Run catalog search\" type=\"submit\" class=\"ns-btn ns-btn-secondary ns-btn-sm\"" + ($v0 ? " disabled=\"\"" : "") + " data-variant=\"secondary\">Search</button>";
+function $T44_1($p1, $tc) {
+const $v0 = $p1.length;
+$o += "<div class=\"ns-grid\"" + $at($v0, " data-count=\"", "\"", " data-count=\"true\"", " data-count=\"false\"", "", 543) + ">";
+$L = false;
+const $a1 = $p1;
+if (!Array.isArray($a1)) $fb(544);
+const $n1 = $a1.length;
+for (let $i1 = 0; $i1 < $n1; $i1++) $B45($a1[$i1], $i1, $a1, $push($tc, $n1, $i1));
+$o += "</div>";
 $L = false;
 }
-function $T36_0($p0, $p1, $tc) {
+function $T55_0($p0, $p1, $p2, $p3, $tc) {
+const $rC2 = $ctx[2];
+const $rI0 = $id($tc, 0);
+const $rI1 = $id($tc, 1);
+if (($p0 > 0)) {
+const $v0 = $rC2.base;
+const $v1 = $rC2.path;
+const $v2 = Boolean($p3);
+const $tcR = $push($tc, 1, 0);
+$o += "<aside class=\"ns-sidebar\" aria-labelledby=\"" + $rI0 + "\"><details class=\"ns-filters\" open=\"\"><summary class=\"ns-filters-summary\">Filters<span class=\"ns-filters-count\">";
+$L = false;
+$tn($p0);
+const $tc3 = $push($tcR, 2, 1);
+const $v4 = ($v0 + $v1);
+const $tc5 = $push($tc3, 5, 3);
+$o += "</span></summary><form id=\"ns-filter-form\" class=\"ns-filter-form\" method=\"get\"" + $at($v4, " action=\"", "\"", "", "", "", 546) + " data-autosubmit=\"true\"><h2 id=\"" + $rI0 + "\" class=\"ns-sidebar-title\">Filters</h2><fieldset class=\"ns-filter-group\"><legend class=\"ns-filter-legend\">Availability</legend><div class=\"ns-filter-opt\"><input type=\"checkbox\" id=\"" + $rI1 + "\" name=\"in_stock\"" + ($v2 ? " checked=\"\"" : "") + " value=\"1\"/><label for=\"" + $rI1 + "\">In stock only</label></div></fieldset>";
+$L = false;
+const $a6 = $p2;
+if (!Array.isArray($a6)) $fb(551);
+const $n6 = $a6.length;
+for (let $i6 = 0; $i6 < $n6; $i6++) $B56($a6[$i6], $i6, $a6, $push($tc5, $n6, $i6));
+const $v7 = ($v0 + $p1);
+$o += "<div class=\"ns-filter-actions\"><button type=\"submit\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Apply filters</button><a class=\"ns-filter-clear\"" + $at($v7, " href=\"", "\"", "", "", "", 552) + ">Clear all</a></div></form></details></aside>";
+$L = false;
+} else {
+const $v8 = $rC2.base;
+const $v9 = $rC2.path;
+const $v10 = Boolean($p3);
+const $tcR = $push($tc, 1, 0);
+const $tc11 = $push($tcR, 2, 1);
+const $v12 = ($v8 + $v9);
+const $tc13 = $push($tc11, 5, 3);
+$o += "<aside class=\"ns-sidebar\" aria-labelledby=\"" + $rI0 + "\"><details class=\"ns-filters\" open=\"\"><summary class=\"ns-filters-summary\">Filters</summary><form id=\"ns-filter-form\" class=\"ns-filter-form\" method=\"get\"" + $at($v12, " action=\"", "\"", "", "", "", 554) + " data-autosubmit=\"true\"><h2 id=\"" + $rI0 + "\" class=\"ns-sidebar-title\">Filters</h2><fieldset class=\"ns-filter-group\"><legend class=\"ns-filter-legend\">Availability</legend><div class=\"ns-filter-opt\"><input type=\"checkbox\" id=\"" + $rI1 + "\" name=\"in_stock\"" + ($v10 ? " checked=\"\"" : "") + " value=\"1\"/><label for=\"" + $rI1 + "\">In stock only</label></div></fieldset>";
+$L = false;
+const $a14 = $p2;
+if (!Array.isArray($a14)) $fb(559);
+const $n14 = $a14.length;
+for (let $i14 = 0; $i14 < $n14; $i14++) $B56($a14[$i14], $i14, $a14, $push($tc13, $n14, $i14));
+$o += "<div class=\"ns-filter-actions\"><button type=\"submit\" class=\"ns-btn ns-btn-secondary ns-btn-sm ns-nojs\">Apply filters</button></div></form></details></aside>";
+$L = false;
+}
+}
+function $T25_4($p0, $tc) {
+const $rC2 = $ctx[2];
+const $v0 = ("ns-art-cat-" + $p0);
+const $v1 = cx("ns-art", "ns-art-large", $v0);
+const $v2 = $rC2.assets;
+const $v3 = ((($v2 + "/art/") + $p0) + ".svg");
+$o += "<div" + $at($v1, " class=\"", "\"", "", "", "", 560) + "><img src=\"" + $e((($v2 + "/art/") + $p0)) + ".svg\" alt=\"\" width=\"560\" height=\"420\" decoding=\"async\"/></div>";
+$L = false;
+}
+function $T37_2($p1, $p2, $p3, $tc) {
 const $rC1 = $ctx[1];
-const $v0 = ((typeof $p0) === "number");
+const $v0 = ((typeof $p1) === "number");
 if ($v0) {
-if (($p0 > $p1)) {
-const $v1 = ($p0 > 0);
+if (($p1 > $p2)) {
+const $v1 = ($p1 > 0);
 if ($v1) {
-const $v2 = Math.round(((($p0 - $p1) / $p0) * 100));
-const $v3 = formatMoney($p1, $rC1);
-const $v4 = formatMoney($p0, $rC1);
-$o += "<div class=\"ns-price-block\"" + ($v1 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+const $v2 = ($p2 === 0);
+if ($v2) {
+$fb(562);
+} else {
+const $v3 = ((typeof $p3) === "number");
+if ($v3) {
+const $v4 = ($p3 !== 0);
+if ($v4) {
+const $v5 = Math.round(((($p1 - $p2) / $p1) * 100));
+const $v6 = formatMoney($p2, $rC1);
+const $v7 = formatMoney($p1, $rC1);
+const $v8 = formatMoney($p3, $rC1);
+$o += "<div class=\"ns-price-block ns-price-large\"" + ($v1 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
 $L = false;
-$tn($v3);
-$o += "</span><del class=\"ns-price-orig\">";
+$tn($v6);
+$o += "</span><del class=\"ns-price-orig\"><span class=\"ns-sr-only\">Was </span>";
 $L = false;
-$tn($v4);
-$o += "</del><span class=\"ns-price-save\">Save ";
+$tn($v7);
+$o += "</del><span class=\"ns-price-save\">−";
 $L = true;
-$te(("" + $v2));
+$te(("" + $v5));
+$o += ($L ? "<!-- -->" : "") + "%</span><span class=\"ns-price-rebate\">";
+$L = false;
+$tn($v8);
+$o += ($L ? "<!-- -->" : "") + " mail-in rebate</span></div>";
+$L = false;
+} else {
+$fb(564);
+}
+} else {
+const $v9 = Math.round(((($p1 - $p2) / $p1) * 100));
+const $v10 = formatMoney($p2, $rC1);
+const $v11 = formatMoney($p1, $rC1);
+$o += "<div class=\"ns-price-block ns-price-large\"" + ($v1 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$L = false;
+$tn($v10);
+$o += "</span><del class=\"ns-price-orig\"><span class=\"ns-sr-only\">Was </span>";
+$L = false;
+$tn($v11);
+$o += "</del><span class=\"ns-price-save\">−";
+$L = true;
+$te(("" + $v9));
 $o += ($L ? "<!-- -->" : "") + "%</span></div>";
 $L = false;
-} else {
-$fb(233);
+}
 }
 } else {
-$fb(234);
+$fb(566);
 }
 } else {
-const $v5 = formatMoney($p1, $rC1);
-$o += "<div class=\"ns-price-block\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$fb(567);
+}
+} else {
+const $v12 = ($p2 === 0);
+if ($v12) {
+const $v13 = ((typeof $p3) === "number");
+if ($v13) {
+$fb(568);
+} else {
+$o += "<div class=\"ns-price-block ns-price-large\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">Free</span></div>";
 $L = false;
-$tn($v5);
+}
+} else {
+const $v14 = ((typeof $p3) === "number");
+if ($v14) {
+const $v15 = ($p3 !== 0);
+if ($v15) {
+const $v16 = formatMoney($p2, $rC1);
+const $v17 = formatMoney($p3, $rC1);
+$o += "<div class=\"ns-price-block ns-price-large\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$L = false;
+$tn($v16);
+$o += "</span><span class=\"ns-price-rebate\">";
+$L = false;
+$tn($v17);
+$o += ($L ? "<!-- -->" : "") + " mail-in rebate</span></div>";
+$L = false;
+} else {
+$fb(571);
+}
+} else {
+const $v18 = formatMoney($p2, $rC1);
+$o += "<div class=\"ns-price-block ns-price-large\"" + ($v0 ? " data-on-sale=\"true\"" : " data-on-sale=\"false\"") + "><span class=\"ns-price-current\">";
+$L = false;
+$tn($v18);
 $o += "</span></div>";
 $L = false;
 }
 }
-function $T37_0($p1, $tc) {
-if (($p1 <= 0)) {
-$o += "<span class=\"ns-stock ns-stock-out\" data-stock-state=\"out\">Out of stock</span>";
+}
+}
+function $T36_1($p0, $p1, $p2, $tc) {
+const $rC2 = $ctx[2];
+const $rI0 = $id($tc, 0);
+const $v0 = ($p1 > 0);
+if ($v0) {
+const $v1 = $rC2.base;
+const $v2 = $rC2.current;
+const $v3 = ($v1 + "/cart/add");
+const $v4 = (!$v0);
+const $v5 = ({"data-add-sku": $p0, "aria-label": ("Add to cart: " + $p2)});
+$o += "<form class=\"ns-add ns-add-full\" method=\"post\" action=\"" + $e($v3) + "\"><input type=\"hidden\" name=\"sku\"" + $at($p0, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 574) + "/><input type=\"hidden\" name=\"back\"" + $at($v2, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 575) + "/><div class=\"ns-qty\"><label for=\"" + $rI0 + "\">Qty</label><input id=\"" + $rI0 + "\" type=\"number\" name=\"qty\" min=\"1\" max=\"99\"" + ($v4 ? " disabled=\"\"" : "") + " inputMode=\"numeric\" value=\"1\"/></div>";
+$L = false;
+$T27_1($v4, $v5, null);
+$o += "</form>";
 $L = false;
 } else {
-if (($p1 <= 5)) {
-$o += "<span class=\"ns-stock ns-stock-low\" data-stock-state=\"low\">Only ";
-$L = true;
-$tn($p1);
-$o += ($L ? "<!-- -->" : "") + " left</span>";
+const $v6 = $rC2.base;
+const $v7 = $rC2.current;
+const $v8 = ($v6 + "/cart/add");
+const $v9 = (!$v0);
+const $v10 = ({"data-add-sku": $p0, "aria-label": ("Out of stock: " + $p2)});
+$o += "<form class=\"ns-add ns-add-full\" method=\"post\" action=\"" + $e($v8) + "\"><input type=\"hidden\" name=\"sku\"" + $at($p0, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 580) + "/><input type=\"hidden\" name=\"back\"" + $at($v7, " value=\"", "\"", " value=\"true\"", " value=\"false\"", "", 581) + "/><div class=\"ns-qty\"><label for=\"" + $rI0 + "\">Qty</label><input id=\"" + $rI0 + "\" type=\"number\" name=\"qty\" min=\"1\" max=\"99\"" + ($v9 ? " disabled=\"\"" : "") + " inputMode=\"numeric\" value=\"1\"/></div>";
 $L = false;
-} else {
-$o += "<span class=\"ns-stock ns-stock-in\" data-stock-state=\"in\">In stock</span>";
-$L = false;
-}
-}
-}
-function $T7_1($p2, $p3, $tc) {
-const $k0 = $okeys($p3);
-if ($k0 === "#nullish") {
-const $v1 = Boolean($p2);
-$o += "<button type=\"button\" class=\"ns-btn ns-btn-primary\"" + ($v1 ? " disabled=\"\"" : "") + " data-variant=\"primary\">View Deal</button>";
-$L = false;
-} else if (typeof $k0 !== "string" && $k0.length === 1 && $k0[0] === "data-spotlight-sku") {
-const $v2 = Boolean($p2);
-const $v3 = $p3["data-spotlight-sku"];
-$o += "<button" + $at($v3, " data-spotlight-sku=\"", "\"", " data-spotlight-sku=\"true\"", " data-spotlight-sku=\"false\"", "", 237) + " type=\"button\" class=\"ns-btn ns-btn-primary\"" + ($v2 ? " disabled=\"\"" : "") + " data-variant=\"primary\">View Deal</button>";
-$L = false;
-} else if (typeof $k0 !== "string" && $k0.length === 1 && $k0[0] === "data-action") {
-const $v4 = Boolean($p2);
-const $v5 = $p3["data-action"];
-$o += "<button" + $at($v5, " data-action=\"", "\"", " data-action=\"true\"", " data-action=\"false\"", "", 239) + " type=\"button\" class=\"ns-btn ns-btn-primary\"" + ($v4 ? " disabled=\"\"" : "") + " data-variant=\"primary\">View Deal</button>";
-$L = false;
-} else { $fb(241); }
-}
-function $T7_2($tc) {
-$o += "<button data-action=\"reset-filters\" type=\"button\" class=\"ns-btn ns-btn-secondary\" data-variant=\"secondary\">Reset Filters</button>";
+$T27_3($v9, $v10, null);
+$o += "</form>";
 $L = false;
 }
-function $T7_3($p2, $p3, $tc) {
-const $k0 = $okeys($p3);
-if (typeof $k0 !== "string" && $k0.length === 2 && $k0[0] === "data-add-sku" && $k0[1] === "aria-label") {
-const $v1 = Boolean($p2);
-const $v2 = $p3["data-add-sku"];
-const $v3 = $p3["aria-label"];
-$o += "<button" + $at($v2, " data-add-sku=\"", "\"", " data-add-sku=\"true\"", " data-add-sku=\"false\"", "", 242) + $at($v3, " aria-label=\"", "\"", " aria-label=\"true\"", " aria-label=\"false\"", "", 243) + " type=\"button\" class=\"ns-btn ns-btn-primary ns-btn-sm\"" + ($v1 ? " disabled=\"\"" : "") + " data-variant=\"primary\">Add to Cart</button>";
-$L = false;
-} else { $fb(245); }
 }
-function $T7_4($p2, $p3, $tc) {
-const $k0 = $okeys($p3);
-if (typeof $k0 !== "string" && $k0.length === 2 && $k0[0] === "data-add-sku" && $k0[1] === "aria-label") {
-const $v1 = Boolean($p2);
-const $v2 = $p3["data-add-sku"];
-const $v3 = $p3["aria-label"];
-$o += "<button" + $at($v2, " data-add-sku=\"", "\"", " data-add-sku=\"true\"", " data-add-sku=\"false\"", "", 246) + $at($v3, " aria-label=\"", "\"", " aria-label=\"true\"", " aria-label=\"false\"", "", 247) + " type=\"button\" class=\"ns-btn ns-btn-ghost ns-btn-sm\"" + ($v1 ? " disabled=\"\"" : "") + " data-variant=\"ghost\">Notify Me</button>";
+function $T8_10($tc) {
+const $v0 = PATHS.check;
+if ($v0 === "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5") {
+$o += "<svg class=\"ns-icon ns-icon-check\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5\"></path></svg>";
 $L = false;
-} else { $fb(249); }
-}
-function $T7_5($p2, $tc) {
-const $v0 = Boolean($p2);
-$o += "<button type=\"button\" class=\"ns-btn ns-btn-primary\"" + ($v0 ? " disabled=\"\"" : "") + " data-variant=\"primary\">Proceed to Checkout</button>";
+} else if ($v0 === "M5 12.5l4.5 4.5L19 7.5") {
+$o += "<svg class=\"ns-icon ns-icon-check\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"></path></svg>";
 $L = false;
+} else { $fb(585); }
 }
 return {
-  contexts: [ThemeContext, LocaleContext, UserContext],
+  contexts: [ThemeContext, LocaleContext, NavContext, UserContext],
   setDefaults(values) { for (let i = 0; i < values.length; i++) $ctxDefault[i] = values[i]; },
   render(data) {
     $o = "";
     $L = false;
     for (let i = 0; i < $ctxDefault.length; i++) $ctx[i] = $ctxDefault[i];
-    $T50(data, { id: 1, ov: "" });
+    $T71(data, { id: 1, ov: "" });
     const out = $o;
     $o = "";
     return out;
@@ -3238,7 +6312,7 @@ return {
 
 var App = __hyModule.exports;
 var tpl = __hyOut.t;
-var sites = ["$B14: attribute value (\"?page=\" + $rA0) of unsupported type","$B14: attribute value cx(\"ns-page-link\", ({\"is-active\": ($rA0 === $rE0.currentPage)})) of unsupported type","$B14: attribute value (\"?page=\" + $rA0) of unsupported type","$B14: attribute value cx(\"ns-page-link\", ({\"is-active\": ($rA0 === $rE0.currentPage)})) of unsupported type","$B23: attribute value cx(\"ns-crumb-item\", ({\"is-current\": ($rA1 === ($rE0.length - 1))})) of unsupported type","$B23: attribute value cx(\"ns-crumb-item\", ({\"is-current\": ($rA1 === ($rE0.length - 1))})) of unsupported type","$B23: attribute value $rA0.href of unsupported type","$B23: attribute value cx(\"ns-crumb-item\", ({\"is-current\": ($rA1 === ($rE0.length - 1))})) of unsupported type","$B23: attribute value cx(\"ns-crumb-item\", ({\"is-current\": ($rA1 === ($rE0.length - 1))})) of unsupported type","$B23: attribute value $rA0.href of unsupported type","$T12 CatalogToolbar: attribute value $rI0 of unsupported type","$T12 CatalogToolbar: attribute value $rI0 of unsupported type","$T12 CatalogToolbar: attribute value $rI0 of unsupported type","$T12 CatalogToolbar: attribute value $rI0 of unsupported type","$T12 CatalogToolbar: $rP.sortBy === <untraced value>","$T12 CatalogToolbar: acls($rI0) untraced","$T13 PaginationBar: (!$rP.pagination) is truthy","$T13 PaginationBar: (((+((+((+((+((+Math.max(1, ($rP.pagination.currentPage - 2))) + 1)) + 1)) + 1)) + 1)) + 1) <= Math.min($rP.pagination.totalPages, (Math.max(1, ($rP.pagination.currentPage - 2)) + 4))) is truthy","$T13 PaginationBar: map over a non-array","$T13 PaginationBar: map over a non-array","$T13 PaginationBar: map over a non-array","$T13 PaginationBar: map over a non-array","$T13 PaginationBar: (((+Math.max(1, ($rP.pagination.currentPage - 2))) + 1) <= Math.min($rP.pagination.totalPages, (Math.max(1, ($rP.pagination.currentPage - 2)) + 4))) is falsy","$T13 PaginationBar: (Math.max(1, ($rP.pagination.currentPage - 2)) <= Math.min($rP.pagination.totalPages, (Math.max(1, ($rP.pagination.currentPage - 2)) + 4))) is falsy","$T15 CountPill: attribute value cx(\"ns-pill\", ({\"ns-pill-hot\": Boolean($rP.hot)})) of unsupported type","$T15 CountPill: attribute value ($rP.count <= 0) of unsupported type","$T15 CountPill: attribute value ($rP.count === 0) of unsupported type","$T16 FilterOption: attribute value cx(\"ns-filter-opt\", ({\"is-selected\": $rP.option.selected})) of unsupported type","$T16 FilterOption: attribute value $rI0 of unsupported type","$T16 FilterOption: attribute value (\"f_\" + $rP.groupId) of unsupported type","$T16 FilterOption: attribute value Boolean($rP.groupDisabled) of unsupported type","$T16 FilterOption: attribute value Boolean($rP.option.selected) of unsupported type","$T16 FilterOption: attribute value $rP.option.value of unsupported type","$T16 FilterOption: attribute value $rI0 of unsupported type","$T16 FilterOption: attribute value cx(\"ns-filter-opt\", ({\"is-selected\": $rP.option.selected})) of unsupported type","$T16 FilterOption: attribute value $rI0 of unsupported type","$T16 FilterOption: attribute value (\"f_\" + $rP.groupId) of unsupported type","$T16 FilterOption: attribute value Boolean(($rP.option.count === 0)) of unsupported type","$T16 FilterOption: attribute value Boolean($rP.option.selected) of unsupported type","$T16 FilterOption: attribute value $rP.option.value of unsupported type","$T16 FilterOption: attribute value $rI0 of unsupported type","$T17 FilterGroup: ($rP.group.options.length === 0) is truthy","$T17 FilterGroup: attribute value Boolean($rP.group.disabled) of unsupported type","$T17 FilterGroup: attribute value $rP.group.id of unsupported type","$T17 FilterGroup: map over a non-array","$T19 FilterSidebar: attribute value $rI0 of unsupported type","$T19 FilterSidebar: attribute value $rI0 of unsupported type","$T19 FilterSidebar: attribute value $rI1 of unsupported type","$T19 FilterSidebar: attribute value Boolean($rP.inStockOnly) of unsupported type","$T19 FilterSidebar: attribute value $rI1 of unsupported type","$T19 FilterSidebar: map over a non-array","$T21 AnnouncementBanner: attribute value cx(\"ns-promo\", ({\"ns-promo-urgent\": Boolean($rP.promo.urgent)})) of unsupported type","$T21 AnnouncementBanner: attribute value (!$rP.promo.active) of unsupported type","$T21 AnnouncementBanner: attribute value $rP.promo.code of unsupported type","$T21 AnnouncementBanner: hcls($rP.promo.html) untraced","$T21 AnnouncementBanner: ($rP.promo.minOrder > 0) is falsy","$T21 AnnouncementBanner: attribute value cx(\"ns-promo\", ({\"ns-promo-urgent\": Boolean($rP.promo.urgent)})) of unsupported type","$T21 AnnouncementBanner: attribute value (!$rP.promo.active) of unsupported type","$T21 AnnouncementBanner: attribute value $rP.promo.code of unsupported type","$T21 AnnouncementBanner: hcls($rP.promo.html) untraced","$T22 Breadcrumbs: (!$rP.breadcrumbs) is truthy","$T22 Breadcrumbs: map over a non-array","$T28 AvatarBadge: scls($rP.color) untraced","$T29 LoyaltyBadge: attribute value cx(\"ns-tier\", (\"ns-tier-\" + $rP.tier)) of unsupported type","$T29 LoyaltyBadge: attribute value $rP.tier of unsupported type","$T29 LoyaltyBadge: attribute value $rP.points of unsupported type","$T29 LoyaltyBadge: $rP.tier is falsy","$T30 UserMenu: attribute value $rC2.id of unsupported type","$T30 UserMenu: attribute value $rC2.id of unsupported type","$T31 SearchBox: attribute value $rI0 of unsupported type","$T31 SearchBox: attribute value $rI0 of unsupported type","$T31 SearchBox: attribute value Boolean($rP.search.disabled) of unsupported type","$T31 SearchBox: attribute value Boolean($rP.search.readOnly) of unsupported type","$T31 SearchBox: attribute value Boolean($rP.search.required) of unsupported type","$T31 SearchBox: attribute value Boolean(($rP.search.query.length > 0)) of unsupported type","$T31 SearchBox: attribute value $rP.search.query of unsupported type","$T31 SearchBox: attribute value $rI0 of unsupported type","$T31 SearchBox: attribute value $rI0 of unsupported type","$T31 SearchBox: attribute value Boolean($rP.search.disabled) of unsupported type","$T31 SearchBox: attribute value Boolean($rP.search.readOnly) of unsupported type","$T31 SearchBox: attribute value Boolean($rP.search.required) of unsupported type","$T31 SearchBox: attribute value Boolean($rP.search.query) of unsupported type","$T31 SearchBox: attribute value $rP.search.query of unsupported type","$T32 NavItem: attribute value cx(\"ns-nav-item\", ({\"is-active\": $rP.active})) of unsupported type","$T32 NavItem: attribute value (\"/c/\" + $rP.category.slug) of unsupported type","$T32 NavItem: attribute value $rP.category.slug of unsupported type","$T32 NavItem: attribute value cx(\"ns-nav-item\", ({\"is-active\": $rP.active})) of unsupported type","$T32 NavItem: attribute value (\"/c/\" + $rP.category.slug) of unsupported type","$T32 NavItem: attribute value $rP.category.slug of unsupported type","$T33 PrimaryNav: (!$rP.categories) is truthy","$T33 PrimaryNav: map over a non-array","$T36 PriceBlock: attribute value ($rP.originalPrice > 0) of unsupported type","$T36 PriceBlock: ($rP.rebateAmount !== 0) is falsy","$T36 PriceBlock: attribute value ($rP.originalPrice > 0) of unsupported type","$T36 PriceBlock: ($rP.originalPrice > 0) is falsy","$T36 PriceBlock: ($rP.originalPrice > $rP.price) is falsy","$T36 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T36 PriceBlock: ($rP.rebateAmount !== 0) is falsy","$T36 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T38 HeroSpotlight: attribute value $rP.spotlight.sku of unsupported type","$T38 HeroSpotlight: attribute value $rP.spotlight.sku of unsupported type","$T39 EmptyCatalogState: attribute value $rP.query of unsupported type","$T39 EmptyCatalogState: attribute value $rP.query of unsupported type","$T41 ProductBadges: (!($rP.product.originalPrice > $rP.product.price)) is truthy","$T41 ProductBadges: $rP.product.featured is truthy","$T41 ProductBadges: $rP.product.clearance is truthy","$T41 ProductBadges: ($rP.product.originalPrice > $rP.product.price) is falsy","$T41 ProductBadges: $rP.product.featured is truthy","$T41 ProductBadges: $rP.product.clearance is falsy","$T41 ProductBadges: ($rP.product.originalPrice > $rP.product.price) is falsy","$T41 ProductBadges: ($rP.product.originalPrice > $rP.product.price) is falsy","$T41 ProductBadges: $rP.product.featured is falsy","$T41 ProductBadges: (!((typeof $rP.product.originalPrice) === \"number\")) is falsy","$T41 ProductBadges: $rP.product.featured is truthy","$T41 ProductBadges: $rP.product.clearance is falsy","$T41 ProductBadges: $rP.product.featured is falsy","$T42 ReviewSnippet: attribute value Boolean($rP.review.verified) of unsupported type","$T42 ReviewSnippet: attribute value Boolean($rP.review.verified) of unsupported type","$T43 SpecList: ($rP.specs.length === 0) is truthy","$T43 SpecList: map over a non-array","$T45 StarRating: ($rP.rating < 0) is truthy","$T45 StarRating: ($rP.rating > 5) is truthy","$T45 StarRating: attribute value ((\"Rated \" + $rP.rating.toFixed(1)) + \" out of 5\") of unsupported type","$T45 StarRating: scls((Math.round((($rP.rating / 5) * 100)) + \"%\")) untraced","$T45 StarRating: attribute value ((\"Rated \" + $rP.rating.toFixed(1)) + \" out of 5\") of unsupported type","$T45 StarRating: scls((Math.round((($rP.rating / 5) * 100)) + \"%\")) untraced","$T46 ProductCard: attribute value $rP.product.sku of unsupported type","$T46 ProductCard: attribute value $rP.product.category of unsupported type","$T46 ProductCard: attribute value ($rP.product.stock > 0) of unsupported type","$T46 ProductCard: attribute value Boolean($rP.product.featured) of unsupported type","$T46 ProductCard: attribute value cx(\"ns-card\", ({\"ns-card-featured\": Boolean($rP.product.featured), \"ns-card-out\": (!($rP.product.stock > 0))})) of unsupported type","$T46 ProductCard: attribute value (\"/p/\" + $rP.product.sku) of unsupported type","$T46 ProductCard: attribute value $rP.product.title of unsupported type","$T46 ProductCard: scls0($rP.index) untraced","$T46 ProductCard: scls(getThemePalette($rC0).accent) untraced","$T46 ProductCard: attribute value $rP.product.sku of unsupported type","$T46 ProductCard: attribute value $rP.product.category of unsupported type","$T46 ProductCard: attribute value ($rP.product.stock > 0) of unsupported type","$T46 ProductCard: attribute value Boolean($rP.product.featured) of unsupported type","$T46 ProductCard: attribute value cx(\"ns-card\", ({\"ns-card-featured\": Boolean($rP.product.featured), \"ns-card-out\": (!($rP.product.stock > 0))})) of unsupported type","$T46 ProductCard: attribute value (\"/p/\" + $rP.product.sku) of unsupported type","$T46 ProductCard: attribute value $rP.product.title of unsupported type","$T46 ProductCard: scls0($rP.index) untraced","$T46 ProductCard: attribute value $rP.product.sku of unsupported type","$T46 ProductCard: attribute value $rP.product.category of unsupported type","$T46 ProductCard: attribute value ($rP.product.stock > 0) of unsupported type","$T46 ProductCard: attribute value Boolean($rP.product.featured) of unsupported type","$T46 ProductCard: attribute value cx(\"ns-card\", ({\"ns-card-featured\": Boolean($rP.product.featured), \"ns-card-out\": (!($rP.product.stock > 0))})) of unsupported type","$T46 ProductCard: attribute value (\"/p/\" + $rP.product.sku) of unsupported type","$T46 ProductCard: attribute value $rP.product.title of unsupported type","$T46 ProductCard: scls0($rP.index) untraced","$T46 ProductCard: scls(getThemePalette($rC0).accent) untraced","$T46 ProductCard: attribute value $rP.product.sku of unsupported type","$T46 ProductCard: attribute value $rP.product.category of unsupported type","$T46 ProductCard: attribute value ($rP.product.stock > 0) of unsupported type","$T46 ProductCard: attribute value Boolean($rP.product.featured) of unsupported type","$T46 ProductCard: attribute value cx(\"ns-card\", ({\"ns-card-featured\": Boolean($rP.product.featured), \"ns-card-out\": (!($rP.product.stock > 0))})) of unsupported type","$T46 ProductCard: attribute value (\"/p/\" + $rP.product.sku) of unsupported type","$T46 ProductCard: attribute value $rP.product.title of unsupported type","$T46 ProductCard: scls0($rP.index) untraced","$T47 ProductGrid: attribute value $rP.products.length of unsupported type","$T47 ProductGrid: map over a non-array","$T49 CatalogPage: attribute value cx(\"ns-shell\", (\"ns-theme-\" + $rC0), ({\"ns-compact\": Boolean($rP.data.compactMode)})) of unsupported type","$T49 CatalogPage: attribute value $rC0 of unsupported type","$T49 CatalogPage: attribute value $rC1.code of unsupported type","$T49 CatalogPage: attribute value $rP.data.requestId of unsupported type","$T49 CatalogPage: scls(getThemePalette($rC0).fg) untraced","$T49 CatalogPage: scls(getThemePalette($rC0).bg) untraced","$T7 ActionButton: attribute value $rP.extraAttrs[\"data-action\"] of unsupported type","$T7 ActionButton: attribute value $rP.extraAttrs[\"aria-label\"] of unsupported type","$T7 ActionButton: attribute value $rP.type of unsupported type","$T7 ActionButton: attribute value cx(\"ns-btn\", (\"ns-btn-\" + $rP.variant), (\"ns-btn-\" + $rP.size), $rP.className) of unsupported type","$T7 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T7 ActionButton: attribute value $rP.variant of unsupported type","$T7 ActionButton: keys($rP.extraAttrs) untraced","$T7 ActionButton: attribute value $rP.extraAttrs[\"data-add-sku\"] of unsupported type","$T7 ActionButton: attribute value $rP.extraAttrs[\"aria-label\"] of unsupported type","$T7 ActionButton: attribute value cx(\"ns-btn\", (\"ns-btn-\" + $rP.variant), (\"ns-btn-\" + $rP.size), $rP.className) of unsupported type","$T7 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T7 ActionButton: attribute value $rP.variant of unsupported type","$T7 ActionButton: keys($rP.extraAttrs) untraced","$T7 ActionButton: $rP.type is truthy","$T7 ActionButton: attribute value cx(\"ns-btn\", (\"ns-btn-\" + $rP.variant), $rP.size, $rP.className) of unsupported type","$T7 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T7 ActionButton: attribute value $rP.variant of unsupported type","$T7 ActionButton: attribute value $rP.extraAttrs[\"data-spotlight-sku\"] of unsupported type","$T7 ActionButton: attribute value cx(\"ns-btn\", (\"ns-btn-\" + $rP.variant), $rP.size, $rP.className) of unsupported type","$T7 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T7 ActionButton: attribute value $rP.variant of unsupported type","$T7 ActionButton: attribute value $rP.extraAttrs[\"data-action\"] of unsupported type","$T7 ActionButton: attribute value cx(\"ns-btn\", (\"ns-btn-\" + $rP.variant), $rP.size, $rP.className) of unsupported type","$T7 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T7 ActionButton: attribute value $rP.variant of unsupported type","$T7 ActionButton: keys($rP.extraAttrs) untraced","$T7 ActionButton: $rP.variant is falsy","$T8 CartLineItem: attribute value $rP.item.sku of unsupported type","$T8 CartLineItem: attribute value $rP.item.sku of unsupported type","$T9 CartSummaryAside: ($rP.cart.items.length === 0) is truthy","$T9 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T9 CartSummaryAside: map over a non-array","$T9 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T9 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T9 CartSummaryAside: map over a non-array","$T9 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T9 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T9 CartSummaryAside: map over a non-array","$T9 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T9 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T9 CartSummaryAside: map over a non-array","$T9 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T9 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T9 CartSummaryAside: map over a non-array","$T9 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T9 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T9 CartSummaryAside: map over a non-array","$T9 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T9 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T9 CartSummaryAside: map over a non-array","$T9 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T9 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T9 CartSummaryAside: map over a non-array","$T9 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T9 CartSummaryAside: ($hy_mk10($rP.cart, $rC2)().memberDiscount !== 0) is truthy","$T9 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T9 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T9 CartSummaryAside: ($hy_mk10($rP.cart, $rC2)().shipping === 0) is falsy","$T9 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T9 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T9 CartSummaryAside: ($rP.cart.items.length === 0) is falsy","$T15_0 CountPill: attribute value ($rP.count <= 0) of unsupported type","$T15_0 CountPill: attribute value ($rP.count === 0) of unsupported type","$T7_0 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T36_0 PriceBlock: attribute value ($rP.originalPrice > 0) of unsupported type","$T36_0 PriceBlock: ($rP.originalPrice > 0) is falsy","$T36_0 PriceBlock: ($rP.originalPrice > $rP.price) is falsy","$T36_0 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T7_1 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T7_1 ActionButton: attribute value $rP.extraAttrs[\"data-spotlight-sku\"] of unsupported type","$T7_1 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T7_1 ActionButton: attribute value $rP.extraAttrs[\"data-action\"] of unsupported type","$T7_1 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T7_1 ActionButton: keys($rP.extraAttrs) untraced","$T7_3 ActionButton: attribute value $rP.extraAttrs[\"data-add-sku\"] of unsupported type","$T7_3 ActionButton: attribute value $rP.extraAttrs[\"aria-label\"] of unsupported type","$T7_3 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T7_3 ActionButton: keys($rP.extraAttrs) untraced","$T7_4 ActionButton: attribute value $rP.extraAttrs[\"data-add-sku\"] of unsupported type","$T7_4 ActionButton: attribute value $rP.extraAttrs[\"aria-label\"] of unsupported type","$T7_4 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T7_4 ActionButton: keys($rP.extraAttrs) untraced","$T7_5 ActionButton: attribute value Boolean($rP.disabled) of unsupported type"];
+var sites = ["$B11: attribute value (($rE0.base + \"/c/\") + $rA0.slug) of unsupported type","$B32: attribute value (($rE0.base + \"/c/\") + $rA0.slug) of unsupported type","$B48: attribute value ($rE0.base + $rA0.href) of unsupported type","$B48: attribute value (\"Remove filter: \" + $rA0.label) of unsupported type","$B50: attribute value ($rE1 + $rA0) of unsupported type","$B50: attribute value cx(\"ns-page-link\", ({\"is-active\": ($rA0 === $rE0.currentPage)})) of unsupported type","$B50: attribute value ($rE1 + $rA0) of unsupported type","$B50: attribute value cx(\"ns-page-link\", ({\"is-active\": ($rA0 === $rE0.currentPage)})) of unsupported type","$B58: attribute value (($rE0.base + \"/c/\") + $rA0.slug) of unsupported type","$B61: attribute value (($rE0.base + \"/c/\") + $rA0.slug) of unsupported type","$B7: attribute value cx(\"ns-crumb-item\", ({\"is-current\": ($rA1 === ($rE0.length - 1))})) of unsupported type","$B7: attribute value cx(\"ns-crumb-item\", ({\"is-current\": ($rA1 === ($rE0.length - 1))})) of unsupported type","$B7: attribute value ($rE1.base + $rA0.href) of unsupported type","$T10 SiteFooter: attribute value ($rC2.base + \"/\") of unsupported type","$T10 SiteFooter: map over a non-array","$T10 SiteFooter: attribute value ($rC2.base + \"/signin\") of unsupported type","$T10 SiteFooter: attribute value ($rC2.base + \"/cart\") of unsupported type","$T10 SiteFooter: attribute value ($rC2.base + \"/shop\") of unsupported type","$T10 SiteFooter: attribute value ($rC2.assets + \"/compare\") of unsupported type","$T10 SiteFooter: attribute value ($rC2.assets + \"/\") of unsupported type","$T13 AvatarBadge: scls($rP.color) untraced","$T14 LoyaltyBadge: attribute value cx(\"ns-tier\", (\"ns-tier-\" + $rP.tier)) of unsupported type","$T14 LoyaltyBadge: attribute value $rP.tier of unsupported type","$T14 LoyaltyBadge: attribute value $rP.points of unsupported type","$T14 LoyaltyBadge: attribute value (formatInt($rP.points, $rC1.groupSep) + \" points\") of unsupported type","$T14 LoyaltyBadge: $rP.tier is falsy","$T15 UserMenu: attribute value ($rC2.base + \"/signin\") of unsupported type","$T15 UserMenu: attribute value $rC3.id of unsupported type","$T15 UserMenu: attribute value ($rC2.base + \"/signin\") of unsupported type","$T15 UserMenu: attribute value (\"Account: \" + $rC3.name) of unsupported type","$T16 ThemeToggle: attribute value ($rC2.base + \"/theme\") of unsupported type","$T16 ThemeToggle: attribute value $rC2.current of unsupported type","$T16 ThemeToggle: attribute value ($rC2.base + \"/theme\") of unsupported type","$T16 ThemeToggle: attribute value $rC2.current of unsupported type","$T17 CartLink: attribute value ($rC2.base + \"/cart\") of unsupported type","$T17 CartLink: attribute value cx(\"ns-header-link\", \"ns-cart-link\", ({\"is-current\": ($rC2.view === \"cart\")})) of unsupported type","$T17 CartLink: attribute value ((\"Cart, \" + $rP.count) + \" item\") of unsupported type","$T17 CartLink: attribute value ($rP.count === 0) of unsupported type","$T17 CartLink: attribute value ($rC2.base + \"/cart\") of unsupported type","$T17 CartLink: attribute value cx(\"ns-header-link\", \"ns-cart-link\", ({\"is-current\": ($rC2.view === \"cart\")})) of unsupported type","$T17 CartLink: attribute value ((\"Cart, \" + $rP.count) + \" items\") of unsupported type","$T17 CartLink: attribute value ($rP.count === 0) of unsupported type","$T18 SearchBox: attribute value ($rC2.base + \"/search\") of unsupported type","$T18 SearchBox: attribute value $rI0 of unsupported type","$T18 SearchBox: attribute value $rI0 of unsupported type","$T18 SearchBox: attribute value Boolean($rP.search.disabled) of unsupported type","$T18 SearchBox: attribute value Boolean($rP.search.readOnly) of unsupported type","$T18 SearchBox: attribute value Boolean($rP.search.required) of unsupported type","$T18 SearchBox: attribute value Boolean(($rP.search.query.length > 0)) of unsupported type","$T18 SearchBox: attribute value $rP.search.query of unsupported type","$T18 SearchBox: attribute value Boolean($rP.search.disabled) of unsupported type","$T18 SearchBox: attribute value ($rC2.base + \"/search\") of unsupported type","$T18 SearchBox: attribute value $rI0 of unsupported type","$T18 SearchBox: attribute value $rI0 of unsupported type","$T18 SearchBox: attribute value Boolean($rP.search.disabled) of unsupported type","$T18 SearchBox: attribute value Boolean($rP.search.readOnly) of unsupported type","$T18 SearchBox: attribute value Boolean($rP.search.required) of unsupported type","$T18 SearchBox: attribute value Boolean($rP.search.query) of unsupported type","$T18 SearchBox: attribute value $rP.search.query of unsupported type","$T18 SearchBox: attribute value Boolean($rP.search.disabled) of unsupported type","$T19 NavItem: attribute value cx(\"ns-nav-item\", ({\"is-active\": $rP.active, \"is-hot\": Boolean($rP.category.hot)})) of unsupported type","$T19 NavItem: attribute value (($rC2.base + \"/c/\") + $rP.category.slug) of unsupported type","$T19 NavItem: attribute value $rP.category.slug of unsupported type","$T19 NavItem: attribute value cx(\"ns-nav-item\", ({\"is-active\": $rP.active, \"is-hot\": Boolean($rP.category.hot)})) of unsupported type","$T19 NavItem: attribute value (($rC2.base + \"/c/\") + $rP.category.slug) of unsupported type","$T19 NavItem: attribute value $rP.category.slug of unsupported type","$T20 PrimaryNav: (!$rP.categories) is truthy","$T20 PrimaryNav: attribute value cx(\"ns-nav-item\", ({\"is-active\": ($rC2.path === \"/shop\")})) of unsupported type","$T20 PrimaryNav: attribute value ($rC2.base + \"/shop\") of unsupported type","$T20 PrimaryNav: map over a non-array","$T20 PrimaryNav: attribute value cx(\"ns-nav-item\", ({\"is-active\": ($rC2.path === \"/shop\")})) of unsupported type","$T20 PrimaryNav: attribute value ($rC2.base + \"/shop\") of unsupported type","$T20 PrimaryNav: map over a non-array","$T20 PrimaryNav: attribute value cx(\"ns-nav-item\", ({\"is-active\": ($rC2.view === \"listing\")})) of unsupported type","$T20 PrimaryNav: attribute value ($rC2.base + \"/shop\") of unsupported type","$T20 PrimaryNav: map over a non-array","$T22 SiteHeader: attribute value ($rC2.base + \"/\") of unsupported type","$T25 ProductArt: attribute value cx(\"ns-art\", (\"ns-art-\" + $rP.size), (\"ns-art-cat-\" + $rP.category)) of unsupported type","$T25 ProductArt: attribute value ((($rC2.assets + \"/art/\") + $rP.category) + \".svg\") of unsupported type","$T25 ProductArt: $rP.eager is falsy","$T25 ProductArt: $rP.eager is truthy","$T25 ProductArt: attribute value cx(\"ns-art\", (\"ns-art-\" + $rP.size), (\"ns-art-cat-\" + $rP.category)) of unsupported type","$T25 ProductArt: attribute value ((($rC2.assets + \"/art/\") + $rP.category) + \".svg\") of unsupported type","$T25 ProductArt: $rP.eager is truthy","$T25 ProductArt: attribute value cx(\"ns-art\", (\"ns-art-\" + $rP.size), (\"ns-art-cat-\" + $rP.category)) of unsupported type","$T25 ProductArt: attribute value ((($rC2.assets + \"/art/\") + $rP.category) + \".svg\") of unsupported type","$T25 ProductArt: attribute value cx(\"ns-art\", \"ns-art-card\", (\"ns-art-cat-\" + $rP.category)) of unsupported type","$T25 ProductArt: attribute value ((($rC2.assets + \"/art/\") + $rP.category) + \".svg\") of unsupported type","$T25 ProductArt: attribute value cx(\"ns-art\", \"ns-art-card\", (\"ns-art-cat-\" + $rP.category)) of unsupported type","$T25 ProductArt: attribute value ((($rC2.assets + \"/art/\") + $rP.category) + \".svg\") of unsupported type","$T26 CartLineItem: attribute value $rP.item.sku of unsupported type","$T26 CartLineItem: attribute value (($rC2.base + \"/p/\") + $rP.item.sku) of unsupported type","$T26 CartLineItem: attribute value ($rC2.base + \"/cart/update\") of unsupported type","$T26 CartLineItem: attribute value $rP.item.sku of unsupported type","$T26 CartLineItem: attribute value $rI0 of unsupported type","$T26 CartLineItem: attribute value $rI0 of unsupported type","$T26 CartLineItem: attribute value $rP.item.qty of unsupported type","$T26 CartLineItem: attribute value $rP.item.sku of unsupported type","$T26 CartLineItem: attribute value (($rC2.base + \"/p/\") + $rP.item.sku) of unsupported type","$T26 CartLineItem: attribute value ($rC2.base + \"/cart/update\") of unsupported type","$T26 CartLineItem: attribute value $rP.item.sku of unsupported type","$T26 CartLineItem: attribute value $rI0 of unsupported type","$T26 CartLineItem: attribute value $rI0 of unsupported type","$T26 CartLineItem: attribute value $rP.item.qty of unsupported type","$T26 CartLineItem: $rP.item.category is falsy","$T27 ActionButton: attribute value $rP.extraAttrs[\"data-add-sku\"] of unsupported type","$T27 ActionButton: attribute value $rP.extraAttrs[\"aria-label\"] of unsupported type","$T27 ActionButton: attribute value $rP.type of unsupported type","$T27 ActionButton: attribute value cx(\"ns-btn\", (\"ns-btn-\" + $rP.variant), (\"ns-btn-\" + $rP.size), $rP.className) of unsupported type","$T27 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T27 ActionButton: attribute value $rP.variant of unsupported type","$T27 ActionButton: keys($rP.extraAttrs) untraced","$T27 ActionButton: attribute value cx(\"ns-btn\", (\"ns-btn-\" + $rP.variant), (\"ns-btn-\" + $rP.size), $rP.className) of unsupported type","$T27 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T27 ActionButton: attribute value $rP.variant of unsupported type","$T27 ActionButton: keys($rP.extraAttrs) untraced","$T27 ActionButton: $rP.size is falsy","$T27 ActionButton: $rP.variant is falsy","$T28 CartSummaryAside: ($rP.totals.credit !== 0) is truthy","$T28 CartSummaryAside: ($rP.totals.shipping === 0) is truthy","$T28 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T28 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T28 CartSummaryAside: scls(($rP.totals.freeShippingProgress + \"%\")) untraced","$T28 CartSummaryAside: ($rP.totals.credit !== 0) is truthy","$T28 CartSummaryAside: ($rP.totals.shipping === 0) is truthy","$T28 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T28 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T28 CartSummaryAside: scls(($rP.totals.freeShippingProgress + \"%\")) untraced","$T28 CartSummaryAside: ($rP.totals.credit !== 0) is truthy","$T28 CartSummaryAside: ($rP.totals.shipping === 0) is truthy","$T28 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T28 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T28 CartSummaryAside: scls(($rP.totals.freeShippingProgress + \"%\")) untraced","$T28 CartSummaryAside: ($rP.totals.credit !== 0) is truthy","$T28 CartSummaryAside: ($rP.totals.shipping === 0) is truthy","$T28 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T28 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T28 CartSummaryAside: scls(($rP.totals.freeShippingProgress + \"%\")) untraced","$T28 CartSummaryAside: ($rP.totals.unitCount === 1) is truthy","$T28 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T28 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T28 CartSummaryAside: scls(($rP.totals.freeShippingProgress + \"%\")) untraced","$T28 CartSummaryAside: ($rP.totals.shipping === 0) is falsy","$T28 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T28 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T28 CartSummaryAside: scls(($rP.totals.freeShippingProgress + \"%\")) untraced","$T28 CartSummaryAside: ($rP.totals.shipping === 0) is falsy","$T28 CartSummaryAside: ($rP.totals.credit !== 0) is truthy","$T28 CartSummaryAside: attribute value ($rP.cart.items.length === 0) of unsupported type","$T28 CartSummaryAside: attribute value Boolean($rP.cart.notesOpen) of unsupported type","$T28 CartSummaryAside: scls(($rP.totals.freeShippingProgress + \"%\")) untraced","$T28 CartSummaryAside: ($rP.totals.shipping === 0) is falsy","$T29 CartPage: attribute value ($rC2.base + \"/shop\") of unsupported type","$T29 CartPage: map over a non-array","$T31 CategoryTiles: map over a non-array","$T36 AddToCartForm: attribute value ($rC2.base + \"/cart/add\") of unsupported type","$T36 AddToCartForm: attribute value $rP.sku of unsupported type","$T36 AddToCartForm: attribute value $rC2.current of unsupported type","$T36 AddToCartForm: attribute value $rI0 of unsupported type","$T36 AddToCartForm: attribute value $rI0 of unsupported type","$T36 AddToCartForm: attribute value (!($rP.stock > 0)) of unsupported type","$T36 AddToCartForm: attribute value ($rC2.base + \"/cart/add\") of unsupported type","$T36 AddToCartForm: attribute value $rP.sku of unsupported type","$T36 AddToCartForm: attribute value $rC2.current of unsupported type","$T36 AddToCartForm: attribute value ($rC2.base + \"/cart/add\") of unsupported type","$T36 AddToCartForm: attribute value $rP.sku of unsupported type","$T36 AddToCartForm: attribute value $rC2.current of unsupported type","$T36 AddToCartForm: attribute value $rI0 of unsupported type","$T36 AddToCartForm: attribute value $rI0 of unsupported type","$T36 AddToCartForm: attribute value (!($rP.stock > 0)) of unsupported type","$T36 AddToCartForm: attribute value ($rC2.base + \"/cart/add\") of unsupported type","$T36 AddToCartForm: attribute value $rP.sku of unsupported type","$T36 AddToCartForm: attribute value $rC2.current of unsupported type","$T37 PriceBlock: ($rP.price === 0) is truthy","$T37 PriceBlock: attribute value ($rP.originalPrice > 0) of unsupported type","$T37 PriceBlock: ($rP.rebateAmount !== 0) is falsy","$T37 PriceBlock: attribute value ($rP.originalPrice > 0) of unsupported type","$T37 PriceBlock: ($rP.price === 0) is truthy","$T37 PriceBlock: attribute value ($rP.originalPrice > 0) of unsupported type","$T37 PriceBlock: ($rP.rebateAmount !== 0) is falsy","$T37 PriceBlock: attribute value ($rP.originalPrice > 0) of unsupported type","$T37 PriceBlock: ($rP.originalPrice > 0) is falsy","$T37 PriceBlock: ($rP.originalPrice > $rP.price) is falsy","$T37 PriceBlock: ((typeof $rP.rebateAmount) === \"number\") is truthy","$T37 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T37 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T37 PriceBlock: ($rP.rebateAmount !== 0) is falsy","$T37 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T37 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T37 PriceBlock: ($rP.rebateAmount !== 0) is falsy","$T37 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T37 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T37 PriceBlock: ($rP.rebateAmount !== 0) is falsy","$T37 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T39 HeroSpotlight: attribute value $rP.spotlight.sku of unsupported type","$T39 HeroSpotlight: attribute value (($rC2.base + \"/p/\") + $rP.spotlight.sku) of unsupported type","$T39 HeroSpotlight: attribute value $rP.spotlight.sku of unsupported type","$T39 HeroSpotlight: attribute value (($rC2.base + \"/p/\") + $rP.spotlight.sku) of unsupported type","$T39 HeroSpotlight: $rP.spotlight.category is falsy","$T41 ProductBadges: (!($rP.product.originalPrice > $rP.product.price)) is truthy","$T41 ProductBadges: $rP.product.clearance is truthy","$T41 ProductBadges: $rP.product.featured is truthy","$T41 ProductBadges: ($rP.product.originalPrice > $rP.product.price) is falsy","$T41 ProductBadges: $rP.product.featured is truthy","$T41 ProductBadges: $rP.product.clearance is falsy","$T41 ProductBadges: $rP.product.featured is falsy","$T41 ProductBadges: $rP.product.featured is falsy","$T41 ProductBadges: ($rP.product.originalPrice > $rP.product.price) is falsy","$T41 ProductBadges: (!((typeof $rP.product.originalPrice) === \"number\")) is falsy","$T41 ProductBadges: $rP.product.featured is truthy","$T41 ProductBadges: $rP.product.clearance is falsy","$T41 ProductBadges: $rP.product.featured is falsy","$T41 ProductBadges: $rP.product.featured is falsy","$T42 StarRating: ($rP.rating < 0) is truthy","$T42 StarRating: ($rP.rating > 5) is truthy","$T42 StarRating: attribute value ((((\"Rated \" + $rP.rating.toFixed(1)) + \" out of 5, \") + formatInt($rP.reviewCount, $rC1.groupSep)) + \" reviews\") of unsupported type","$T42 StarRating: scls((Math.round((($rP.rating / 5) * 100)) + \"%\")) untraced","$T42 StarRating: attribute value ((((\"Rated \" + $rP.rating.toFixed(1)) + \" out of 5, \") + formatInt($rP.reviewCount, $rC1.groupSep)) + \" reviews\") of unsupported type","$T42 StarRating: scls((Math.round((($rP.rating / 5) * 100)) + \"%\")) untraced","$T43 ProductCard: attribute value $rP.product.sku of unsupported type","$T43 ProductCard: attribute value $rP.product.category of unsupported type","$T43 ProductCard: attribute value ($rP.product.stock > 0) of unsupported type","$T43 ProductCard: attribute value Boolean($rP.product.featured) of unsupported type","$T43 ProductCard: attribute value cx(\"ns-card\", ({\"ns-card-featured\": Boolean($rP.product.featured), \"ns-card-out\": (!($rP.product.stock > 0))})) of unsupported type","$T43 ProductCard: attribute value (($rC2.base + \"/p/\") + $rP.product.sku) of unsupported type","$T44 ProductGrid: attribute value $rP.products.length of unsupported type","$T44 ProductGrid: map over a non-array","$T44 ProductGrid: attribute value $rP.products.length of unsupported type","$T44 ProductGrid: map over a non-array","$T46 HomePage: attribute value ($rC2.base + \"/shop\") of unsupported type","$T46 HomePage: attribute value ($rC2.base + \"/signin\") of unsupported type","$T46 HomePage: attribute value ($rC2.base + \"/shop\") of unsupported type","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: map over a non-array","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: map over a non-array","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: map over a non-array","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: map over a non-array","$T47 CatalogToolbar: $rP.sortBy === <untraced value>","$T47 CatalogToolbar: acls($rI0) untraced","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: $rP.sortBy === <untraced value>","$T47 CatalogToolbar: acls($rI0) untraced","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: map over a non-array","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: map over a non-array","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: map over a non-array","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: map over a non-array","$T47 CatalogToolbar: $rP.sortBy === <untraced value>","$T47 CatalogToolbar: acls($rI0) untraced","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: $rP.sortBy === <untraced value>","$T47 CatalogToolbar: acls($rI0) untraced","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: map over a non-array","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: map over a non-array","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: map over a non-array","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: map over a non-array","$T47 CatalogToolbar: $rP.sortBy === <untraced value>","$T47 CatalogToolbar: acls($rI0) untraced","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: attribute value $rI0 of unsupported type","$T47 CatalogToolbar: $rP.sortBy === <untraced value>","$T47 CatalogToolbar: acls($rI0) untraced","$T49 PaginationBar: (!$rP.pagination) is truthy","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + \"1\") of unsupported type","$T49 PaginationBar: (((+((+((+((+((+Math.max(1, Math.min(($rP.pagination.currentPage - 2), ($rP.pagination.totalPages - 4)))) + 1)) + 1)) + 1)) + 1)) + 1) <= Math.min($rP.pagination.totalPages, (Math.max(1, Math.min(($rP.pagination.currentPage - 2), ($rP.pagination.totalPages - 4))) + 4))) is truthy","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage - 1)) of unsupported type","$T49 PaginationBar: map over a non-array","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage + 1)) of unsupported type","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + \"all\") of unsupported type","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage - 1)) of unsupported type","$T49 PaginationBar: map over a non-array","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + \"all\") of unsupported type","$T49 PaginationBar: map over a non-array","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage + 1)) of unsupported type","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + \"all\") of unsupported type","$T49 PaginationBar: ($rP.pagination.currentPage < $rP.pagination.totalPages) is falsy","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage - 1)) of unsupported type","$T49 PaginationBar: map over a non-array","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage + 1)) of unsupported type","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + \"all\") of unsupported type","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage - 1)) of unsupported type","$T49 PaginationBar: map over a non-array","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + \"all\") of unsupported type","$T49 PaginationBar: map over a non-array","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage + 1)) of unsupported type","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + \"all\") of unsupported type","$T49 PaginationBar: ($rP.pagination.currentPage < $rP.pagination.totalPages) is falsy","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage - 1)) of unsupported type","$T49 PaginationBar: map over a non-array","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage + 1)) of unsupported type","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + \"all\") of unsupported type","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage - 1)) of unsupported type","$T49 PaginationBar: map over a non-array","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + \"all\") of unsupported type","$T49 PaginationBar: map over a non-array","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage + 1)) of unsupported type","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + \"all\") of unsupported type","$T49 PaginationBar: ($rP.pagination.currentPage < $rP.pagination.totalPages) is falsy","$T49 PaginationBar: ($rP.pagination.currentPage < $rP.pagination.totalPages) is truthy","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage - 1)) of unsupported type","$T49 PaginationBar: map over a non-array","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + \"all\") of unsupported type","$T49 PaginationBar: map over a non-array","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + ($rP.pagination.currentPage + 1)) of unsupported type","$T49 PaginationBar: attribute value (($rC2.base + $rP.pagination.hrefPrefix) + \"all\") of unsupported type","$T49 PaginationBar: ($rP.pagination.currentPage < $rP.pagination.totalPages) is falsy","$T49 PaginationBar: (((+Math.max(1, Math.min(($rP.pagination.currentPage - 2), ($rP.pagination.totalPages - 4)))) + 1) <= Math.min($rP.pagination.totalPages, (Math.max(1, Math.min(($rP.pagination.currentPage - 2), ($rP.pagination.totalPages - 4))) + 4))) is falsy","$T49 PaginationBar: (Math.max(1, Math.min(($rP.pagination.currentPage - 2), ($rP.pagination.totalPages - 4))) <= Math.min($rP.pagination.totalPages, (Math.max(1, Math.min(($rP.pagination.currentPage - 2), ($rP.pagination.totalPages - 4))) + 4))) is falsy","$T5 AnnouncementBanner: attribute value cx(\"ns-promo\", ({\"ns-promo-urgent\": Boolean($rP.promo.urgent)})) of unsupported type","$T5 AnnouncementBanner: attribute value (!$rP.promo.active) of unsupported type","$T5 AnnouncementBanner: attribute value $rP.promo.code of unsupported type","$T5 AnnouncementBanner: hcls($rP.promo.html) untraced","$T5 AnnouncementBanner: attribute value cx(\"ns-promo\", ({\"ns-promo-urgent\": Boolean($rP.promo.urgent)})) of unsupported type","$T5 AnnouncementBanner: attribute value (!$rP.promo.active) of unsupported type","$T5 AnnouncementBanner: attribute value $rP.promo.code of unsupported type","$T5 AnnouncementBanner: hcls($rP.promo.html) untraced","$T5 AnnouncementBanner: ($rP.promo.minOrder > 0) is falsy","$T5 AnnouncementBanner: attribute value cx(\"ns-promo\", ({\"ns-promo-urgent\": Boolean($rP.promo.urgent)})) of unsupported type","$T5 AnnouncementBanner: attribute value (!$rP.promo.active) of unsupported type","$T5 AnnouncementBanner: attribute value $rP.promo.code of unsupported type","$T5 AnnouncementBanner: hcls($rP.promo.html) untraced","$T5 AnnouncementBanner: attribute value cx(\"ns-promo\", ({\"ns-promo-urgent\": Boolean($rP.promo.urgent)})) of unsupported type","$T5 AnnouncementBanner: attribute value (!$rP.promo.active) of unsupported type","$T5 AnnouncementBanner: attribute value $rP.promo.code of unsupported type","$T5 AnnouncementBanner: hcls($rP.promo.html) untraced","$T51 CountPill: attribute value cx(\"ns-pill\", ({\"ns-pill-hot\": Boolean($rP.hot)})) of unsupported type","$T51 CountPill: attribute value ($rP.count <= 0) of unsupported type","$T51 CountPill: attribute value ($rP.count === 0) of unsupported type","$T52 FilterOption: attribute value cx(\"ns-filter-opt\", ({\"is-selected\": $rP.option.selected, \"is-disabled\": Boolean($rP.groupDisabled)})) of unsupported type","$T52 FilterOption: attribute value $rI0 of unsupported type","$T52 FilterOption: attribute value $rP.groupId of unsupported type","$T52 FilterOption: attribute value Boolean($rP.groupDisabled) of unsupported type","$T52 FilterOption: attribute value Boolean($rP.option.selected) of unsupported type","$T52 FilterOption: attribute value $rP.option.value of unsupported type","$T52 FilterOption: attribute value $rI0 of unsupported type","$T52 FilterOption: attribute value cx(\"ns-filter-opt\", ({\"is-selected\": $rP.option.selected, \"is-disabled\": Boolean((!$rP.option.selected))})) of unsupported type","$T52 FilterOption: attribute value $rI0 of unsupported type","$T52 FilterOption: attribute value $rP.groupId of unsupported type","$T52 FilterOption: attribute value Boolean((!$rP.option.selected)) of unsupported type","$T52 FilterOption: attribute value Boolean($rP.option.selected) of unsupported type","$T52 FilterOption: attribute value $rP.option.value of unsupported type","$T52 FilterOption: attribute value $rI0 of unsupported type","$T52 FilterOption: attribute value cx(\"ns-filter-opt\", ({\"is-selected\": $rP.option.selected, \"is-disabled\": Boolean(($rP.option.count === 0))})) of unsupported type","$T52 FilterOption: attribute value $rI0 of unsupported type","$T52 FilterOption: attribute value $rP.groupId of unsupported type","$T52 FilterOption: attribute value Boolean(($rP.option.count === 0)) of unsupported type","$T52 FilterOption: attribute value Boolean($rP.option.selected) of unsupported type","$T52 FilterOption: attribute value $rP.option.value of unsupported type","$T52 FilterOption: attribute value $rI0 of unsupported type","$T53 FilterGroup: attribute value Boolean($rP.group.disabled) of unsupported type","$T53 FilterGroup: attribute value $rP.group.id of unsupported type","$T53 FilterGroup: attribute value Boolean($rP.group.disabled) of unsupported type","$T53 FilterGroup: attribute value $rP.group.id of unsupported type","$T53 FilterGroup: map over a non-array","$T55 FilterSidebar: attribute value $rI0 of unsupported type","$T55 FilterSidebar: attribute value ($rC2.base + $rC2.path) of unsupported type","$T55 FilterSidebar: attribute value $rI0 of unsupported type","$T55 FilterSidebar: attribute value $rP.query of unsupported type","$T55 FilterSidebar: attribute value $rI1 of unsupported type","$T55 FilterSidebar: attribute value Boolean($rP.inStockOnly) of unsupported type","$T55 FilterSidebar: attribute value $rI1 of unsupported type","$T55 FilterSidebar: map over a non-array","$T55 FilterSidebar: attribute value ($rC2.base + $rP.clearHref) of unsupported type","$T55 FilterSidebar: attribute value $rI0 of unsupported type","$T55 FilterSidebar: attribute value ($rC2.base + $rC2.path) of unsupported type","$T55 FilterSidebar: attribute value $rI0 of unsupported type","$T55 FilterSidebar: attribute value $rI1 of unsupported type","$T55 FilterSidebar: attribute value Boolean($rP.inStockOnly) of unsupported type","$T55 FilterSidebar: attribute value $rI1 of unsupported type","$T55 FilterSidebar: map over a non-array","$T55 FilterSidebar: attribute value ($rC2.base + $rP.clearHref) of unsupported type","$T55 FilterSidebar: attribute value $rI0 of unsupported type","$T55 FilterSidebar: attribute value ($rC2.base + $rC2.path) of unsupported type","$T55 FilterSidebar: attribute value $rI0 of unsupported type","$T55 FilterSidebar: attribute value $rP.query of unsupported type","$T55 FilterSidebar: attribute value $rI1 of unsupported type","$T55 FilterSidebar: attribute value Boolean($rP.inStockOnly) of unsupported type","$T55 FilterSidebar: attribute value $rI1 of unsupported type","$T55 FilterSidebar: map over a non-array","$T55 FilterSidebar: attribute value $rI0 of unsupported type","$T55 FilterSidebar: attribute value ($rC2.base + $rC2.path) of unsupported type","$T55 FilterSidebar: attribute value $rI0 of unsupported type","$T55 FilterSidebar: attribute value $rI1 of unsupported type","$T55 FilterSidebar: attribute value Boolean($rP.inStockOnly) of unsupported type","$T55 FilterSidebar: attribute value $rI1 of unsupported type","$T55 FilterSidebar: map over a non-array","$T57 EmptyCatalogState: attribute value $rP.query of unsupported type","$T57 EmptyCatalogState: attribute value ($rC2.base + $rP.clearHref) of unsupported type","$T57 EmptyCatalogState: map over a non-array","$T57 EmptyCatalogState: attribute value $rP.query of unsupported type","$T57 EmptyCatalogState: attribute value ($rC2.base + \"/shop\") of unsupported type","$T57 EmptyCatalogState: map over a non-array","$T57 EmptyCatalogState: attribute value $rP.query of unsupported type","$T57 EmptyCatalogState: attribute value ($rC2.base + $rP.clearHref) of unsupported type","$T57 EmptyCatalogState: map over a non-array","$T57 EmptyCatalogState: attribute value $rP.query of unsupported type","$T57 EmptyCatalogState: attribute value ($rC2.base + \"/shop\") of unsupported type","$T57 EmptyCatalogState: map over a non-array","$T59 ListingPage: attribute value $rP.listing.kind of unsupported type","$T59 ListingPage: attribute value $rP.listing.kind of unsupported type","$T59 ListingPage: attribute value $rP.listing.kind of unsupported type","$T59 ListingPage: attribute value $rP.listing.kind of unsupported type","$T59 ListingPage: attribute value $rP.listing.kind of unsupported type","$T59 ListingPage: attribute value $rP.listing.kind of unsupported type","$T59 ListingPage: attribute value $rP.listing.kind of unsupported type","$T59 ListingPage: attribute value $rP.listing.kind of unsupported type","$T6 Breadcrumbs: (!$rP.breadcrumbs) is truthy","$T6 Breadcrumbs: map over a non-array","$T60 NotFoundPage: attribute value ($rC2.base + \"/\") of unsupported type","$T60 NotFoundPage: attribute value ($rC2.base + \"/shop\") of unsupported type","$T60 NotFoundPage: map over a non-array","$T62 ReviewSnippet: (!$rP.review) is truthy","$T62 ReviewSnippet: attribute value Boolean($rP.review.verified) of unsupported type","$T62 ReviewSnippet: attribute value Boolean($rP.review.verified) of unsupported type","$T63 SpecList: (!$rP.specs) is truthy","$T63 SpecList: map over a non-array","$T65 ProductDetail: attribute value $rP.product.sku of unsupported type","$T65 ProductDetail: attribute value cx(\"ns-pdp-section\", ({\"is-empty\": ($rP.specs.length === 0)})) of unsupported type","$T65 ProductDetail: attribute value $rP.product.sku of unsupported type","$T65 ProductDetail: attribute value cx(\"ns-pdp-section\", ({\"is-empty\": ($rP.specs.length === 0)})) of unsupported type","$T67 SignInPage: attribute value ($rC2.base + \"/signout\") of unsupported type","$T67 SignInPage: attribute value ($rC2.base + \"/signin\") of unsupported type","$T67 SignInPage: attribute value $rI0 of unsupported type","$T67 SignInPage: attribute value $rI0 of unsupported type","$T67 SignInPage: attribute value $rI1 of unsupported type","$T67 SignInPage: attribute value $rI1 of unsupported type","$T68 StorePage: attribute value (\"ns-shell ns-theme-\" + $rC0) of unsupported type","$T68 StorePage: attribute value $rC0 of unsupported type","$T68 StorePage: attribute value $rC1.code of unsupported type","$T68 StorePage: attribute value $rC2.view of unsupported type","$T68 StorePage: $rP.data.home is falsy","$T68 StorePage: attribute value (\"ns-shell ns-theme-\" + $rC0) of unsupported type","$T68 StorePage: attribute value $rC0 of unsupported type","$T68 StorePage: attribute value $rC1.code of unsupported type","$T68 StorePage: attribute value $rC2.view of unsupported type","$T68 StorePage: $rP.data.listing is falsy","$T68 StorePage: attribute value (\"ns-shell ns-theme-\" + $rC0) of unsupported type","$T68 StorePage: attribute value $rC0 of unsupported type","$T68 StorePage: attribute value $rC1.code of unsupported type","$T68 StorePage: attribute value $rC2.view of unsupported type","$T68 StorePage: $rP.data.product is falsy","$T68 StorePage: attribute value (\"ns-shell ns-theme-\" + $rC0) of unsupported type","$T68 StorePage: attribute value $rC0 of unsupported type","$T68 StorePage: attribute value $rC1.code of unsupported type","$T68 StorePage: attribute value $rC2.view of unsupported type","$T68 StorePage: attribute value (\"ns-shell ns-theme-\" + $rC0) of unsupported type","$T68 StorePage: attribute value $rC0 of unsupported type","$T68 StorePage: attribute value $rC1.code of unsupported type","$T68 StorePage: attribute value $rC2.view of unsupported type","$T68 StorePage: attribute value (\"ns-shell ns-theme-\" + $rC0) of unsupported type","$T68 StorePage: attribute value $rC0 of unsupported type","$T68 StorePage: attribute value $rC1.code of unsupported type","$T68 StorePage: attribute value $rC2.view of unsupported type","$T8 Icon: PATHS[$rP.name] === <untraced value>","$T8 Icon: PATHS[$rP.name] === <untraced value>","$T8 Icon: PATHS[$rP.name] === <untraced value>","$T8 Icon: $rP.size === <untraced value>","$T8 Icon: acls((\"ns-icon ns-icon-\" + $rP.name)) untraced","$T8 Icon: PATHS[$rP.name] === <untraced value>","$T8 Icon: acls((\"ns-icon ns-icon-\" + $rP.name)) untraced","$T9 FlashMessage: attribute value ($rC2.base + \"/cart\") of unsupported type","$T25_0 ProductArt: attribute value cx(\"ns-art\", (\"ns-art-\" + $rP.size), (\"ns-art-cat-\" + $rP.category)) of unsupported type","$T25_0 ProductArt: attribute value ((($rC2.assets + \"/art/\") + $rP.category) + \".svg\") of unsupported type","$T8_0 Icon: PATHS.close === <untraced value>","$T8_1 Icon: PATHS.user === <untraced value>","$T8_2 Icon: PATHS.sun === <untraced value>","$T8_3 Icon: PATHS.moon === <untraced value>","$T8_4 Icon: PATHS.cart === <untraced value>","$T8_5 Icon: PATHS.search === <untraced value>","$T25_1 ProductArt: attribute value cx(\"ns-art\", (\"ns-art-\" + $rP.size), (\"ns-art-cat-\" + $rP.category)) of unsupported type","$T25_1 ProductArt: attribute value ((($rC2.assets + \"/art/\") + $rP.category) + \".svg\") of unsupported type","$T27_1 ActionButton: attribute value $rP.extraAttrs[\"data-add-sku\"] of unsupported type","$T27_1 ActionButton: attribute value $rP.extraAttrs[\"aria-label\"] of unsupported type","$T27_1 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T27_1 ActionButton: keys($rP.extraAttrs) untraced","$T27_2 ActionButton: attribute value $rP.extraAttrs[\"data-add-sku\"] of unsupported type","$T27_2 ActionButton: attribute value $rP.extraAttrs[\"aria-label\"] of unsupported type","$T27_2 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T27_2 ActionButton: keys($rP.extraAttrs) untraced","$T27_3 ActionButton: attribute value $rP.extraAttrs[\"data-add-sku\"] of unsupported type","$T27_3 ActionButton: attribute value $rP.extraAttrs[\"aria-label\"] of unsupported type","$T27_3 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T27_3 ActionButton: keys($rP.extraAttrs) untraced","$T27_4 ActionButton: attribute value $rP.extraAttrs[\"data-add-sku\"] of unsupported type","$T27_4 ActionButton: attribute value $rP.extraAttrs[\"aria-label\"] of unsupported type","$T27_4 ActionButton: attribute value Boolean($rP.disabled) of unsupported type","$T27_4 ActionButton: keys($rP.extraAttrs) untraced","$T25_2 ProductArt: attribute value cx(\"ns-art\", \"ns-art-card\", (\"ns-art-cat-\" + $rP.category)) of unsupported type","$T25_2 ProductArt: attribute value ((($rC2.assets + \"/art/\") + $rP.category) + \".svg\") of unsupported type","$T37_0 PriceBlock: ($rP.price === 0) is truthy","$T37_0 PriceBlock: attribute value ($rP.originalPrice > 0) of unsupported type","$T37_0 PriceBlock: ($rP.originalPrice > 0) is falsy","$T37_0 PriceBlock: ($rP.originalPrice > $rP.price) is falsy","$T37_0 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T37_0 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T36_0 AddToCartForm: attribute value ($rC2.base + \"/cart/add\") of unsupported type","$T36_0 AddToCartForm: attribute value $rP.sku of unsupported type","$T36_0 AddToCartForm: attribute value $rC2.current of unsupported type","$T36_0 AddToCartForm: attribute value ($rC2.base + \"/cart/add\") of unsupported type","$T36_0 AddToCartForm: attribute value $rP.sku of unsupported type","$T36_0 AddToCartForm: attribute value $rC2.current of unsupported type","$T8_6 Icon: PATHS.truck === <untraced value>","$T8_7 Icon: PATHS.doc === <untraced value>","$T8_8 Icon: PATHS.shield === <untraced value>","$T8_9 Icon: PATHS.clock === <untraced value>","$T25_3 ProductArt: attribute value cx(\"ns-art\", \"ns-art-card\", (\"ns-art-cat-\" + $rP.category)) of unsupported type","$T25_3 ProductArt: attribute value ((($rC2.assets + \"/art/\") + $rP.category) + \".svg\") of unsupported type","$T25_3 ProductArt: attribute value cx(\"ns-art\", \"ns-art-card\", (\"ns-art-cat-\" + $rP.category)) of unsupported type","$T25_3 ProductArt: attribute value ((($rC2.assets + \"/art/\") + $rP.category) + \".svg\") of unsupported type","$T37_1 PriceBlock: ($rP.price === 0) is truthy","$T37_1 PriceBlock: attribute value ($rP.originalPrice > 0) of unsupported type","$T37_1 PriceBlock: ($rP.rebateAmount !== 0) is falsy","$T37_1 PriceBlock: attribute value ($rP.originalPrice > 0) of unsupported type","$T37_1 PriceBlock: ($rP.originalPrice > 0) is falsy","$T37_1 PriceBlock: ($rP.originalPrice > $rP.price) is falsy","$T37_1 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T37_1 PriceBlock: ($rP.rebateAmount !== 0) is falsy","$T37_1 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T37_1 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T37_1 PriceBlock: ($rP.rebateAmount !== 0) is falsy","$T37_1 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T44_0 ProductGrid: attribute value $rP.products.length of unsupported type","$T44_0 ProductGrid: map over a non-array","$T51_0 CountPill: attribute value ($rP.count <= 0) of unsupported type","$T51_0 CountPill: attribute value ($rP.count === 0) of unsupported type","$T44_1 ProductGrid: attribute value $rP.products.length of unsupported type","$T44_1 ProductGrid: map over a non-array","$T55_0 FilterSidebar: attribute value $rI0 of unsupported type","$T55_0 FilterSidebar: attribute value ($rC2.base + $rC2.path) of unsupported type","$T55_0 FilterSidebar: attribute value $rI0 of unsupported type","$T55_0 FilterSidebar: attribute value $rI1 of unsupported type","$T55_0 FilterSidebar: attribute value Boolean($rP.inStockOnly) of unsupported type","$T55_0 FilterSidebar: attribute value $rI1 of unsupported type","$T55_0 FilterSidebar: map over a non-array","$T55_0 FilterSidebar: attribute value ($rC2.base + $rP.clearHref) of unsupported type","$T55_0 FilterSidebar: attribute value $rI0 of unsupported type","$T55_0 FilterSidebar: attribute value ($rC2.base + $rC2.path) of unsupported type","$T55_0 FilterSidebar: attribute value $rI0 of unsupported type","$T55_0 FilterSidebar: attribute value $rI1 of unsupported type","$T55_0 FilterSidebar: attribute value Boolean($rP.inStockOnly) of unsupported type","$T55_0 FilterSidebar: attribute value $rI1 of unsupported type","$T55_0 FilterSidebar: map over a non-array","$T25_4 ProductArt: attribute value cx(\"ns-art\", (\"ns-art-\" + $rP.size), (\"ns-art-cat-\" + $rP.category)) of unsupported type","$T25_4 ProductArt: attribute value ((($rC2.assets + \"/art/\") + $rP.category) + \".svg\") of unsupported type","$T37_2 PriceBlock: ($rP.price === 0) is truthy","$T37_2 PriceBlock: attribute value ($rP.originalPrice > 0) of unsupported type","$T37_2 PriceBlock: ($rP.rebateAmount !== 0) is falsy","$T37_2 PriceBlock: attribute value ($rP.originalPrice > 0) of unsupported type","$T37_2 PriceBlock: ($rP.originalPrice > 0) is falsy","$T37_2 PriceBlock: ($rP.originalPrice > $rP.price) is falsy","$T37_2 PriceBlock: ((typeof $rP.rebateAmount) === \"number\") is truthy","$T37_2 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T37_2 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T37_2 PriceBlock: ($rP.rebateAmount !== 0) is falsy","$T37_2 PriceBlock: attribute value ((typeof $rP.originalPrice) === \"number\") of unsupported type","$T36_1 AddToCartForm: attribute value ($rC2.base + \"/cart/add\") of unsupported type","$T36_1 AddToCartForm: attribute value $rP.sku of unsupported type","$T36_1 AddToCartForm: attribute value $rC2.current of unsupported type","$T36_1 AddToCartForm: attribute value $rI0 of unsupported type","$T36_1 AddToCartForm: attribute value $rI0 of unsupported type","$T36_1 AddToCartForm: attribute value (!($rP.stock > 0)) of unsupported type","$T36_1 AddToCartForm: attribute value ($rC2.base + \"/cart/add\") of unsupported type","$T36_1 AddToCartForm: attribute value $rP.sku of unsupported type","$T36_1 AddToCartForm: attribute value $rC2.current of unsupported type","$T36_1 AddToCartForm: attribute value $rI0 of unsupported type","$T36_1 AddToCartForm: attribute value $rI0 of unsupported type","$T36_1 AddToCartForm: attribute value (!($rP.stock > 0)) of unsupported type","$T8_10 Icon: PATHS.check === <untraced value>"];
 tpl.setDefaults(tpl.contexts.map(function (c) { return c._currentValue; }));
 
 var React = require("react");

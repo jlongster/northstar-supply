@@ -14,54 +14,40 @@ var LocaleContext = react_default.createContext({
   decSep: "."
 });
 
+// src/context/NavContext.js
+var NavContext = react_default.createContext({
+  base: "",
+  assets: "",
+  view: "home",
+  path: "/",
+  current: "/"
+});
+
 // src/context/ThemeContext.js
 var ThemeContext = react_default.createContext("light");
 
 // src/context/UserContext.js
 var UserContext = react_default.createContext(null);
 
-// src/lib/catalog.js
-function computeCatalogStats(products) {
-  var inStockCount = 0;
-  var onSaleCount = 0;
-  for (var i = 0; i < products.length; i++) {
-    var p = products[i];
-    if (p.stock > 0) inStockCount++;
-    if (typeof p.originalPrice === "number" && p.originalPrice > p.price) {
-      onSaleCount++;
+// src/lib/classNames.js
+function cx() {
+  var classes = "";
+  for (var i = 0; i < arguments.length; i++) {
+    var arg = arguments[i];
+    if (!arg) continue;
+    if (typeof arg === "string") {
+      classes = classes ? classes + " " + arg : arg;
+    } else if (typeof arg === "object") {
+      var keys = Object.keys(arg);
+      for (var k = 0; k < keys.length; k++) {
+        var key = keys[k];
+        if (arg[key]) {
+          classes = classes ? classes + " " + key : key;
+        }
+      }
     }
   }
-  return {
-    visibleCount: products.length,
-    inStockCount: inStockCount,
-    onSaleCount: onSaleCount
-  };
-}
-
-// src/lib/cart.js
-function computeCartTotals(cart, user) {
-  var subtotal = 0;
-  var unitCount = 0;
-  for (var i = 0; i < cart.items.length; i++) {
-    var it = cart.items[i];
-    subtotal += it.qty * it.unitPrice;
-    unitCount += it.qty;
-  }
-  var discountRate = user && user.tier === "vip" ? 0.1 : user && user.tier === "pro" ? 0.05 : 0;
-  var memberDiscount = subtotal > 0 ? -(subtotal * discountRate) : 0;
-  var afterDiscount = subtotal + memberDiscount + cart.creditAdjustment;
-  var taxable = afterDiscount > 0 ? afterDiscount : 0;
-  var shipping = unitCount === 0 || taxable >= cart.freeShippingThreshold ? 0 : 14.95;
-  var tax = taxable * cart.taxRate;
-  var grandTotal = afterDiscount + shipping + tax;
-  return {
-    subtotal: subtotal,
-    unitCount: unitCount,
-    memberDiscount: memberDiscount,
-    shipping: shipping,
-    tax: tax,
-    grandTotal: grandTotal
-  };
+  return classes;
 }
 
 // src/lib/numbers.js
@@ -102,25 +88,521 @@ function formatMoney(amount, locale) {
   return neg && abs > 0 ? "-" + formatted : formatted;
 }
 
-// src/lib/classNames.js
-function cx() {
-  var classes = "";
-  for (var i = 0; i < arguments.length; i++) {
-    var arg = arguments[i];
-    if (!arg) continue;
-    if (typeof arg === "string") {
-      classes = classes ? classes + " " + arg : arg;
-    } else if (typeof arg === "object") {
-      var keys = Object.keys(arg);
-      for (var k = 0; k < keys.length; k++) {
-        var key = keys[k];
-        if (arg[key]) {
-          classes = classes ? classes + " " + key : key;
-        }
-      }
+// src/components/layout/AnnouncementBanner.jsx
+function AnnouncementBanner(props) {
+  var locale = react_default.useContext(LocaleContext);
+  var promo = props.promo;
+  if (!promo) {
+    return null;
+  }
+  return /* @__PURE__ */ react_default.createElement("section", {
+    className: cx("ns-promo", {
+      "ns-promo-urgent": Boolean(promo.urgent)
+    }),
+    hidden: !promo.active,
+    "data-campaign": promo.code
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-promo-inner ns-container"
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-promo-html",
+    dangerouslySetInnerHTML: {
+      __html: promo.html
+    }
+  }), promo.minOrder !== void 0 && promo.minOrder > 0 ? /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-promo-min"
+  }, "Min. order ", formatMoney(promo.minOrder, locale)) : null, promo.code ? /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-promo-code"
+  }, "Code ", /* @__PURE__ */ react_default.createElement("code", null, promo.code)) : null));
+}
+
+// src/components/layout/Breadcrumbs.jsx
+function Breadcrumbs(props) {
+  var nav = react_default.useContext(NavContext);
+  var crumbs = props.breadcrumbs;
+  if (!crumbs || crumbs.length === 0) {
+    return null;
+  }
+  return /* @__PURE__ */ react_default.createElement("nav", {
+    className: "ns-crumbs ns-container",
+    "aria-label": "Breadcrumb"
+  }, /* @__PURE__ */ react_default.createElement("ol", {
+    className: "ns-crumb-list"
+  }, crumbs.map(function(crumb, idx) {
+    var isLast = idx === crumbs.length - 1;
+    return /* @__PURE__ */ react_default.createElement("li", {
+      key: crumb.href + ":" + idx,
+      className: cx("ns-crumb-item", {
+        "is-current": isLast
+      })
+    }, isLast ? /* @__PURE__ */ react_default.createElement("span", {
+      "aria-current": "page"
+    }, crumb.label) : /* @__PURE__ */ react_default.createElement("a", {
+      href: nav.base + crumb.href
+    }, crumb.label));
+  })));
+}
+
+// src/components/ui/Icon.jsx
+var PATHS = {
+  search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5",
+  cart: "M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M9.5 20h.01M17 20h.01",
+  user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0",
+  moon: "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z",
+  sun: "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4",
+  truck: "M3 6h11v9H3zM14 9h4l3 3v3h-7M7 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z",
+  shield: "M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3zM9 12l2 2 4-4",
+  doc: "M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5",
+  clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
+  check: "M5 12.5l4.5 4.5L19 7.5",
+  arrow: "M5 12h14M13 6l6 6-6 6",
+  close: "M6 6l12 12M18 6L6 18"
+};
+function Icon(props) {
+  var size = props.size || 20;
+  return /* @__PURE__ */ react_default.createElement("svg", {
+    className: "ns-icon ns-icon-" + props.name,
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.75",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": "true",
+    focusable: "false"
+  }, /* @__PURE__ */ react_default.createElement("path", {
+    d: PATHS[props.name]
+  }));
+}
+
+// src/components/layout/FlashMessage.jsx
+function FlashMessage(props) {
+  var nav = react_default.useContext(NavContext);
+  var flash = props.flash;
+  if (!flash) {
+    return null;
+  }
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-flash ns-container",
+    role: "status"
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-flash-inner"
+  }, /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "check",
+    size: 18
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-flash-text"
+  }, flash.text), flash.cartLink ? /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-flash-link",
+    href: nav.base + "/cart"
+  }, "View cart") : null));
+}
+
+// src/components/layout/SiteFooter.jsx
+function SiteFooter(props) {
+  var nav = react_default.useContext(NavContext);
+  var locale = react_default.useContext(LocaleContext);
+  return /* @__PURE__ */ react_default.createElement("footer", {
+    className: "ns-footer"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-footer-grid ns-container"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-footer-about"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/",
+    className: "ns-brand ns-brand-small"
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-brand-mark",
+    "aria-hidden": "true"
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-brand-name"
+  }, "Northstar Supply")), /* @__PURE__ */ react_default.createElement("p", null, "Professional tools and shop supplies for maintenance teams, machine shops and electricians.")), /* @__PURE__ */ react_default.createElement("nav", {
+    className: "ns-footer-col",
+    "aria-label": "Shop"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-footer-title"
+  }, "Shop"), /* @__PURE__ */ react_default.createElement("ul", null, props.categories.map(function(cat) {
+    return /* @__PURE__ */ react_default.createElement("li", {
+      key: cat.id
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      href: nav.base + "/c/" + cat.slug
+    }, cat.label));
+  }))), /* @__PURE__ */ react_default.createElement("nav", {
+    className: "ns-footer-col",
+    "aria-label": "Account"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-footer-title"
+  }, "Account"), /* @__PURE__ */ react_default.createElement("ul", null, /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/signin"
+  }, "Sign in")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/cart"
+  }, "Cart")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/shop"
+  }, "All products")))), /* @__PURE__ */ react_default.createElement("nav", {
+    className: "ns-footer-col",
+    "aria-label": "About this demo"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-footer-title"
+  }, "About this demo"), /* @__PURE__ */ react_default.createElement("ul", null, /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.assets + "/compare"
+  }, "Compare renderers")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.assets + "/"
+  }, "How it works")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement("a", {
+    href: "https://github.com/jlongster/northstar-supply"
+  }, "Source on GitHub"))))), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-footer-meta ns-container"
+  }, /* @__PURE__ */ react_default.createElement("span", null, "© Northstar Supply Co. Demo store: no orders are placed."), /* @__PURE__ */ react_default.createElement("span", null, "Prices in ", locale.currency, " (", locale.code, ")")));
+}
+
+// src/lib/text.js
+function computeInitials(name) {
+  if (!name) return "?";
+  var trimmed = name.trim();
+  if (!trimmed) return "?";
+  var parts = trimmed.split(/\s+/);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (parts[0].slice(0, 1) + parts[parts.length - 1].slice(0, 1)).toUpperCase();
+}
+
+// src/components/ui/AvatarBadge.jsx
+function AvatarBadge(props) {
+  var bg = props.color || "#3f3f46";
+  return /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-avatar",
+    "aria-hidden": "true",
+    style: {
+      backgroundColor: bg,
+      color: "#ffffff"
+    }
+  }, computeInitials(props.name));
+}
+
+// src/components/account/LoyaltyBadge.jsx
+function LoyaltyBadge(props) {
+  var locale = react_default.useContext(LocaleContext);
+  var tier = props.tier || "member";
+  return /* @__PURE__ */ react_default.createElement("span", {
+    className: cx("ns-tier", "ns-tier-" + tier),
+    "data-tier": tier,
+    "data-points": props.points,
+    title: formatInt(props.points, locale.groupSep) + " points"
+  }, tier.toUpperCase());
+}
+
+// src/components/account/UserMenu.jsx
+function UserMenu() {
+  var nav = react_default.useContext(NavContext);
+  var user = react_default.useContext(UserContext);
+  if (!user) {
+    return /* @__PURE__ */ react_default.createElement("div", {
+      className: "ns-user ns-user-anon",
+      "data-authenticated": false
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      href: nav.base + "/signin",
+      className: "ns-header-link"
+    }, /* @__PURE__ */ react_default.createElement(Icon, {
+      name: "user"
+    }), /* @__PURE__ */ react_default.createElement("span", {
+      className: "ns-header-link-label"
+    }, "Sign in")));
+  }
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-user ns-user-auth",
+    "data-authenticated": true,
+    "data-user-id": user.id
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/signin",
+    className: "ns-header-link",
+    title: "Account: " + user.name
+  }, /* @__PURE__ */ react_default.createElement(AvatarBadge, {
+    name: user.name,
+    color: user.avatarColor
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-header-link-label ns-greeting"
+  }, user.name), /* @__PURE__ */ react_default.createElement(LoyaltyBadge, {
+    tier: user.tier,
+    points: user.points
+  })));
+}
+
+// src/components/account/ThemeToggle.jsx
+function ThemeToggle() {
+  var nav = react_default.useContext(NavContext);
+  var theme = react_default.useContext(ThemeContext);
+  var next = theme === "dark" ? "light" : "dark";
+  return /* @__PURE__ */ react_default.createElement("form", {
+    className: "ns-theme-toggle",
+    method: "post",
+    action: nav.base + "/theme"
+  }, /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "theme",
+    value: next
+  }), /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "back",
+    value: nav.current
+  }), /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    className: "ns-icon-btn",
+    "aria-label": "Switch to " + next + " theme",
+    title: "Switch to " + next + " theme"
+  }, theme === "dark" ? /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "sun"
+  }) : /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "moon"
+  })));
+}
+
+// src/components/cart/CartLink.jsx
+function CartLink(props) {
+  var nav = react_default.useContext(NavContext);
+  var count = props.count;
+  return /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/cart",
+    className: cx("ns-header-link", "ns-cart-link", {
+      "is-current": nav.view === "cart"
+    }),
+    "aria-label": "Cart, " + count + (count === 1 ? " item" : " items")
+  }, /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "cart"
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-header-link-label"
+  }, "Cart"), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-cart-count",
+    hidden: count === 0
+  }, count));
+}
+
+// src/components/search/SearchBox.jsx
+function SearchBox(props) {
+  var nav = react_default.useContext(NavContext);
+  var search = props.search;
+  var inputId = react_default.useId();
+  var hasQuery = Boolean(search.query && search.query.length > 0);
+  return /* @__PURE__ */ react_default.createElement("form", {
+    className: "ns-search",
+    role: "search",
+    action: nav.base + "/search",
+    method: "get"
+  }, /* @__PURE__ */ react_default.createElement("label", {
+    className: "ns-sr-only",
+    htmlFor: inputId
+  }, "Search products"), /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "search",
+    size: 18
+  }), /* @__PURE__ */ react_default.createElement("input", {
+    type: "search",
+    id: inputId,
+    name: "q",
+    defaultValue: search.query,
+    placeholder: "Search tools, brands or SKUs",
+    disabled: Boolean(search.disabled),
+    readOnly: Boolean(search.readOnly),
+    required: Boolean(search.required),
+    autoComplete: "off",
+    "data-has-query": hasQuery
+  }), /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    className: "ns-search-submit",
+    disabled: Boolean(search.disabled),
+    "data-action": "catalog-search"
+  }, "Search"));
+}
+
+// src/components/layout/PrimaryNav.jsx
+function NavItem(props) {
+  var nav = react_default.useContext(NavContext);
+  var cat = props.category;
+  var active = props.active;
+  return /* @__PURE__ */ react_default.createElement("li", {
+    className: cx("ns-nav-item", {
+      "is-active": active,
+      "is-hot": Boolean(cat.hot)
+    })
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/c/" + cat.slug,
+    "aria-current": active ? "page" : void 0,
+    "data-category": cat.slug
+  }, cat.label));
+}
+function PrimaryNav(props) {
+  var nav = react_default.useContext(NavContext);
+  var categories = props.categories;
+  if (!categories || categories.length === 0) {
+    return null;
+  }
+  var allActive = nav.view === "listing" && nav.path === "/shop";
+  return /* @__PURE__ */ react_default.createElement("nav", {
+    className: "ns-nav",
+    "aria-label": "Categories"
+  }, /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-nav-list ns-container"
+  }, /* @__PURE__ */ react_default.createElement("li", {
+    className: cx("ns-nav-item", {
+      "is-active": allActive
+    })
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/shop",
+    "aria-current": allActive ? "page" : void 0
+  }, "All products")), categories.map(function(cat) {
+    return /* @__PURE__ */ react_default.createElement(NavItem, {
+      key: cat.id,
+      category: cat,
+      active: cat.slug === props.activeSlug
+    });
+  })));
+}
+
+// src/components/layout/SiteHeader.jsx
+function SiteHeader(props) {
+  var nav = react_default.useContext(NavContext);
+  return /* @__PURE__ */ react_default.createElement("header", {
+    className: "ns-header"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-header-top ns-container"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/",
+    className: "ns-brand",
+    "data-brand": "northstar"
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-brand-mark",
+    "aria-hidden": "true"
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-brand-name"
+  }, "Northstar Supply")), /* @__PURE__ */ react_default.createElement(SearchBox, {
+    search: props.search
+  }), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-header-actions"
+  }, /* @__PURE__ */ react_default.createElement(ThemeToggle, null), /* @__PURE__ */ react_default.createElement(UserMenu, null), /* @__PURE__ */ react_default.createElement(CartLink, {
+    count: props.cartCount
+  }))), /* @__PURE__ */ react_default.createElement(PrimaryNav, {
+    categories: props.categories,
+    activeSlug: props.search.categorySlug
+  }));
+}
+
+// src/lib/cart.js
+function computeCartTotals(cart, user) {
+  var subtotal = 0;
+  var unitCount = 0;
+  for (var i = 0; i < cart.items.length; i++) {
+    var it = cart.items[i];
+    subtotal += it.qty * it.unitPrice;
+    unitCount += it.qty;
+  }
+  var discountRate = user && user.tier === "vip" ? 0.1 : user && user.tier === "pro" ? 0.05 : 0;
+  var memberDiscount = subtotal > 0 ? -(subtotal * discountRate) : 0;
+  var credit = unitCount > 0 ? cart.creditAdjustment : 0;
+  var afterDiscount = subtotal + memberDiscount + credit;
+  var taxable = afterDiscount > 0 ? afterDiscount : 0;
+  var freeShipping = taxable >= cart.freeShippingThreshold;
+  var shipping = unitCount === 0 || freeShipping ? 0 : 14.95;
+  var tax = taxable * cart.taxRate;
+  var remaining = freeShipping ? 0 : cart.freeShippingThreshold - taxable;
+  var progress = cart.freeShippingThreshold > 0 ? Math.min(100, Math.round(taxable / cart.freeShippingThreshold * 100)) : 100;
+  return {
+    subtotal: subtotal,
+    unitCount: unitCount,
+    memberDiscount: memberDiscount,
+    credit: credit,
+    shipping: shipping,
+    tax: tax,
+    grandTotal: taxable + shipping + tax,
+    freeShippingRemaining: remaining,
+    freeShippingProgress: progress
+  };
+}
+
+// src/lib/catalog.js
+function computeCatalogStats(products) {
+  var inStockCount = 0;
+  var onSaleCount = 0;
+  for (var i = 0; i < products.length; i++) {
+    var p = products[i];
+    if (p.stock > 0) inStockCount++;
+    if (typeof p.originalPrice === "number" && p.originalPrice > p.price) {
+      onSaleCount++;
     }
   }
-  return classes;
+  return {
+    visibleCount: products.length,
+    inStockCount: inStockCount,
+    onSaleCount: onSaleCount
+  };
+}
+
+// src/components/product/ProductArt.jsx
+function ProductArt(props) {
+  var nav = react_default.useContext(NavContext);
+  var size = props.size || "card";
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: cx("ns-art", "ns-art-" + size, "ns-art-cat-" + props.category)
+  }, /* @__PURE__ */ react_default.createElement("img", {
+    src: nav.assets + "/art/" + props.category + ".svg",
+    alt: "",
+    width: size === "large" ? 560 : size === "thumb" ? 72 : 320,
+    height: size === "large" ? 420 : size === "thumb" ? 54 : 240,
+    loading: props.eager ? void 0 : "lazy",
+    decoding: "async"
+  }));
+}
+
+// src/components/cart/CartLineItem.jsx
+function CartLineItem(props) {
+  var item = props.item;
+  var nav = react_default.useContext(NavContext);
+  var locale = react_default.useContext(LocaleContext);
+  var qtyId = react_default.useId();
+  var lineTotal = item.qty * item.unitPrice;
+  return /* @__PURE__ */ react_default.createElement("li", {
+    className: "ns-cart-item",
+    "data-sku": item.sku
+  }, /* @__PURE__ */ react_default.createElement(ProductArt, {
+    category: item.category || "hand-tools",
+    size: "thumb"
+  }), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-cart-item-main"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-cart-item-title",
+    href: nav.base + "/p/" + item.sku
+  }, item.title), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-cart-item-meta"
+  }, "SKU ", item.sku, " · ", formatMoney(item.unitPrice, locale), " each"), item.backordered ? /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-cart-backorder"
+  }, "Backordered: ships when restocked") : null), /* @__PURE__ */ react_default.createElement("form", {
+    className: "ns-cart-item-qty",
+    method: "post",
+    action: nav.base + "/cart/update"
+  }, /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "sku",
+    value: item.sku
+  }), /* @__PURE__ */ react_default.createElement("label", {
+    className: "ns-sr-only",
+    htmlFor: qtyId
+  }, "Quantity"), /* @__PURE__ */ react_default.createElement("input", {
+    id: qtyId,
+    type: "number",
+    name: "qty",
+    min: 1,
+    max: 99,
+    defaultValue: item.qty,
+    inputMode: "numeric"
+  }), /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    className: "ns-btn ns-btn-secondary ns-btn-sm"
+  }, "Update"), /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    name: "remove",
+    value: "1",
+    className: "ns-btn ns-btn-ghost ns-btn-sm"
+  }, "Remove")), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-cart-item-total"
+  }, formatMoney(lineTotal, locale)));
 }
 
 // src/components/ui/ActionButton.jsx
@@ -136,264 +618,119 @@ function ActionButton(props) {
   return /* @__PURE__ */ react_default.createElement("button", btnProps, props.children);
 }
 
-// src/components/cart/CartLineItem.jsx
-function CartLineItem(props) {
-  var item = props.item;
-  var locale = react_default.useContext(LocaleContext);
-  var lineTotal = item.qty * item.unitPrice;
-  return /* @__PURE__ */ react_default.createElement("li", {
-    className: "ns-cart-item",
-    "data-sku": item.sku
-  }, /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-cart-item-main"
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-cart-item-title"
-  }, item.title), item.backordered ? /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-cart-backorder"
-  }, "Backorder") : null), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-cart-item-math"
-  }, item.qty, " × ", formatMoney(item.unitPrice, locale), " =", " ", /* @__PURE__ */ react_default.createElement("strong", null, formatMoney(lineTotal, locale))));
-}
-
 // src/components/cart/CartSummaryAside.jsx
 function CartSummaryAside(props) {
   var cart = props.cart;
+  var totals = props.totals;
   var locale = react_default.useContext(LocaleContext);
-  var user = react_default.useContext(UserContext);
-  var totals = react_default.useMemo(function() {
-    return computeCartTotals(cart, user);
-  }, [cart, user]);
   var isEmpty = cart.items.length === 0;
-  var showBreakdown = !isEmpty || cart.creditAdjustment !== 0;
   return /* @__PURE__ */ react_default.createElement("aside", {
-    className: "ns-cart",
-    "data-empty": isEmpty
+    className: "ns-summary",
+    "data-empty": isEmpty,
+    "aria-labelledby": "ns-summary-title"
   }, /* @__PURE__ */ react_default.createElement("h2", {
-    className: "ns-cart-title"
-  }, "Order Quote (", totals.unitCount, ")"), isEmpty ? /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-cart-empty"
-  }, "Your quote list is empty.") : /* @__PURE__ */ react_default.createElement("ul", {
-    className: "ns-cart-list"
+    className: "ns-summary-title",
+    id: "ns-summary-title"
+  }, "Order summary"), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-ship-meter"
+  }, /* @__PURE__ */ react_default.createElement("p", null, totals.freeShippingRemaining > 0 ? "Add " + formatMoney(totals.freeShippingRemaining, locale) + " more for free shipping" : "Your order ships free"), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-ship-track",
+    "aria-hidden": "true"
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-ship-fill",
+    style: {
+      width: totals.freeShippingProgress + "%"
+    }
+  }))), /* @__PURE__ */ react_default.createElement("dl", {
+    className: "ns-summary-rows"
+  }, /* @__PURE__ */ react_default.createElement("dt", null, "Subtotal (", totals.unitCount, " ", totals.unitCount === 1 ? "item" : "items", ")"), /* @__PURE__ */ react_default.createElement("dd", null, formatMoney(totals.subtotal, locale)), totals.memberDiscount !== 0 ? /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("dt", null, "Member discount"), /* @__PURE__ */ react_default.createElement("dd", {
+    className: "ns-summary-credit"
+  }, formatMoney(totals.memberDiscount, locale))) : null, totals.credit !== 0 ? /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("dt", null, "Account credit"), /* @__PURE__ */ react_default.createElement("dd", {
+    className: "ns-summary-credit"
+  }, formatMoney(totals.credit, locale))) : null, /* @__PURE__ */ react_default.createElement("dt", null, "Shipping"), /* @__PURE__ */ react_default.createElement("dd", null, totals.shipping === 0 ? "Free" : formatMoney(totals.shipping, locale)), /* @__PURE__ */ react_default.createElement("dt", null, "Estimated tax"), /* @__PURE__ */ react_default.createElement("dd", null, formatMoney(totals.tax, locale)), /* @__PURE__ */ react_default.createElement("dt", {
+    className: "ns-summary-total-label"
+  }, "Total"), /* @__PURE__ */ react_default.createElement("dd", {
+    className: "ns-summary-total"
+  }, formatMoney(totals.grandTotal, locale))), /* @__PURE__ */ react_default.createElement(ActionButton, {
+    variant: "primary",
+    size: "lg",
+    disabled: true,
+    className: "ns-btn-block"
+  }, "Checkout"), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-summary-note"
+  }, "Checkout is disabled in this demo store."), /* @__PURE__ */ react_default.createElement("details", {
+    className: "ns-summary-terms",
+    open: Boolean(cart.notesOpen)
+  }, /* @__PURE__ */ react_default.createElement("summary", null, "Shipping & trade terms"), /* @__PURE__ */ react_default.createElement("p", null, "Orders over ", formatMoney(cart.freeShippingThreshold, locale), " ship free. Trade accounts can pay on Net-30 terms.")));
+}
+
+// src/pages/CartPage.jsx
+function CartPage(props) {
+  var nav = react_default.useContext(NavContext);
+  var cart = props.cart;
+  var isEmpty = cart.items.length === 0;
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-cart-page ns-container"
+  }, /* @__PURE__ */ react_default.createElement("header", {
+    className: "ns-page-head"
+  }, /* @__PURE__ */ react_default.createElement("h1", {
+    className: "ns-page-title"
+  }, "Your cart")), isEmpty ? /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty",
+    role: "status"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty-art",
+    "aria-hidden": "true"
+  }), /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-empty-title"
+  }, "Your cart is empty"), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-empty-desc"
+  }, "Add tools from the catalog and they will show up here."), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty-actions"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-primary",
+    href: nav.base + "/shop"
+  }, "Browse products"))) : /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-cart-layout"
+  }, /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-cart-list",
+    "aria-label": "Items in your cart"
   }, cart.items.map(function(it) {
     return /* @__PURE__ */ react_default.createElement(CartLineItem, {
       key: it.sku,
       item: it
     });
-  })), showBreakdown ? /* @__PURE__ */ react_default.createElement("dl", {
-    className: "ns-cart-totals"
-  }, /* @__PURE__ */ react_default.createElement("dt", null, "Subtotal"), /* @__PURE__ */ react_default.createElement("dd", null, formatMoney(totals.subtotal, locale)), totals.memberDiscount !== 0 ? /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("dt", null, "Member Discount"), /* @__PURE__ */ react_default.createElement("dd", null, formatMoney(totals.memberDiscount, locale))) : null, cart.creditAdjustment !== 0 ? /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("dt", null, "Account Credit"), /* @__PURE__ */ react_default.createElement("dd", null, formatMoney(cart.creditAdjustment, locale))) : null, /* @__PURE__ */ react_default.createElement("dt", null, "Shipping"), /* @__PURE__ */ react_default.createElement("dd", null, totals.shipping === 0 ? "FREE" : formatMoney(totals.shipping, locale)), /* @__PURE__ */ react_default.createElement("dt", null, "Est. Tax"), /* @__PURE__ */ react_default.createElement("dd", null, formatMoney(totals.tax, locale)), /* @__PURE__ */ react_default.createElement("dt", {
-    className: "ns-cart-grand-label"
-  }, "Total"), /* @__PURE__ */ react_default.createElement("dd", {
-    className: "ns-cart-grand-val"
-  }, formatMoney(totals.grandTotal, locale))) : null, /* @__PURE__ */ react_default.createElement("details", {
-    className: "ns-cart-notes",
-    open: Boolean(cart.notesOpen)
-  }, /* @__PURE__ */ react_default.createElement("summary", null, "Freight & Net-30 Terms"), /* @__PURE__ */ react_default.createElement("p", null, "Orders above ", formatMoney(cart.freeShippingThreshold, locale), " ship free.")), /* @__PURE__ */ react_default.createElement(ActionButton, {
-    variant: "primary",
-    disabled: isEmpty
-  }, "Proceed to Checkout"));
-}
-
-// src/components/catalog/CatalogToolbar.jsx
-function CatalogToolbar(props) {
-  var sortId = react_default.useId();
-  var locale = react_default.useContext(LocaleContext);
-  var stats = props.stats;
-  return /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-toolbar"
-  }, /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-toolbar-summary"
-  }, "Showing ", /* @__PURE__ */ react_default.createElement("strong", null, formatInt(stats.visibleCount, locale.groupSep)), " ", "of ", /* @__PURE__ */ react_default.createElement("strong", null, formatInt(props.totalMatching, locale.groupSep)), " ", "items (", stats.inStockCount, " ready, ", stats.onSaleCount, " on sale)"), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-toolbar-sort"
-  }, /* @__PURE__ */ react_default.createElement("label", {
-    htmlFor: sortId
-  }, "Sort:"), /* @__PURE__ */ react_default.createElement("select", {
-    id: sortId,
-    name: "sort",
-    defaultValue: props.sortBy
-  }, /* @__PURE__ */ react_default.createElement("option", {
-    value: "featured"
-  }, "Featured"), /* @__PURE__ */ react_default.createElement("option", {
-    value: "price-asc"
-  }, "Price: Low to High"), /* @__PURE__ */ react_default.createElement("option", {
-    value: "price-desc"
-  }, "Price: High to Low"), /* @__PURE__ */ react_default.createElement("option", {
-    value: "rating"
-  }, "Customer Rating"))));
-}
-
-// src/components/catalog/PaginationBar.jsx
-function PaginationBar(props) {
-  var pag = props.pagination;
-  if (!pag || pag.totalPages <= 1) {
-    return null;
-  }
-  var pages = [];
-  var start = Math.max(1, pag.currentPage - 2);
-  var end = Math.min(pag.totalPages, start + 4);
-  for (var p = start; p <= end; p++) {
-    pages.push(p);
-  }
-  return /* @__PURE__ */ react_default.createElement("nav", {
-    className: "ns-pagination",
-    "aria-label": "Pagination"
-  }, pages.map(function(pageNum) {
-    var active = pageNum === pag.currentPage;
-    return /* @__PURE__ */ react_default.createElement("a", {
-      key: "page-" + pageNum,
-      href: "?page=" + pageNum,
-      className: cx("ns-page-link", {
-        "is-active": active
-      }),
-      "aria-current": active ? "page" : void 0
-    }, pageNum);
-  }));
-}
-
-// src/components/ui/CountPill.jsx
-function CountPill(props) {
-  var locale = react_default.useContext(LocaleContext);
-  var count = props.count;
-  return /* @__PURE__ */ react_default.createElement("span", {
-    className: cx("ns-pill", {
-      "ns-pill-hot": Boolean(props.hot)
-    }),
-    hidden: count <= 0,
-    "data-zero": count === 0
-  }, formatInt(count, locale.groupSep));
-}
-
-// src/components/filters/FilterOption.jsx
-function FilterOption(props) {
-  var opt = props.option;
-  var optId = react_default.useId();
-  var disabled = Boolean(props.groupDisabled || opt.count === 0);
-  return /* @__PURE__ */ react_default.createElement("li", {
-    className: cx("ns-filter-opt", {
-      "is-selected": opt.selected
-    })
-  }, /* @__PURE__ */ react_default.createElement("input", {
-    type: "checkbox",
-    id: optId,
-    name: "f_" + props.groupId,
-    value: opt.value,
-    defaultChecked: Boolean(opt.selected),
-    disabled: disabled
-  }), /* @__PURE__ */ react_default.createElement("label", {
-    htmlFor: optId
-  }, opt.label), /* @__PURE__ */ react_default.createElement(CountPill, {
-    count: opt.count,
-    hot: false
-  }));
-}
-
-// src/components/filters/FilterGroup.jsx
-function FilterGroup(props) {
-  var group = props.group;
-  return /* @__PURE__ */ react_default.createElement("fieldset", {
-    className: "ns-filter-group",
-    disabled: Boolean(group.disabled),
-    "data-filter-key": group.id
-  }, /* @__PURE__ */ react_default.createElement("legend", {
-    className: "ns-filter-legend"
-  }, group.title), group.options.length === 0 ? /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-filter-empty"
-  }, "No options") : /* @__PURE__ */ react_default.createElement("ul", {
-    className: "ns-filter-list"
-  }, group.options.map(function(opt) {
-    return /* @__PURE__ */ react_default.createElement(FilterOption, {
-      key: opt.value,
-      groupId: group.id,
-      groupDisabled: group.disabled,
-      option: opt
-    });
+  })), /* @__PURE__ */ react_default.createElement(CartSummaryAside, {
+    cart: cart,
+    totals: props.totals
   })));
 }
 
-// src/components/filters/FilterSidebar.jsx
-function FilterSidebar(props) {
-  var headingId = react_default.useId();
-  var stockToggleId = react_default.useId();
-  var filters = props.filters;
-  return /* @__PURE__ */ react_default.createElement("aside", {
-    className: "ns-sidebar",
-    "aria-labelledby": headingId
-  }, /* @__PURE__ */ react_default.createElement("h2", {
-    id: headingId,
-    className: "ns-sidebar-title"
-  }, "Filters"), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-stock-toggle"
-  }, /* @__PURE__ */ react_default.createElement("input", {
-    type: "checkbox",
-    id: stockToggleId,
-    name: "in_stock",
-    defaultChecked: Boolean(props.inStockOnly)
-  }), /* @__PURE__ */ react_default.createElement("label", {
-    htmlFor: stockToggleId
-  }, "In-stock items only")), filters.map(function(group) {
-    return /* @__PURE__ */ react_default.createElement(FilterGroup, {
-      key: group.id,
-      group: group
-    });
-  }));
-}
-
-// src/components/layout/AnnouncementBanner.jsx
-function AnnouncementBanner(props) {
+// src/components/home/CategoryTiles.jsx
+function CategoryTiles(props) {
+  var nav = react_default.useContext(NavContext);
   var locale = react_default.useContext(LocaleContext);
-  var promo = props.promo;
-  if (!promo) {
-    return null;
-  }
-  return /* @__PURE__ */ react_default.createElement("section", {
-    className: cx("ns-promo", {
-      "ns-promo-urgent": Boolean(promo.urgent)
-    }),
-    hidden: !promo.active,
-    "data-campaign": promo.code
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-promo-html",
-    dangerouslySetInnerHTML: {
-      __html: promo.html
-    }
-  }), promo.minOrder !== void 0 && promo.minOrder > 0 ? /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-promo-min"
-  }, " ", "(Min. order ", formatMoney(promo.minOrder, locale), ")") : null, /* @__PURE__ */ react_default.createElement("code", {
-    className: "ns-promo-code"
-  }, promo.code));
-}
-
-// src/components/layout/Breadcrumbs.jsx
-function Breadcrumbs(props) {
-  var crumbs = props.breadcrumbs;
-  if (!crumbs || crumbs.length === 0) {
-    return null;
-  }
-  return /* @__PURE__ */ react_default.createElement("nav", {
-    className: "ns-crumbs",
-    "aria-label": "Breadcrumb"
-  }, /* @__PURE__ */ react_default.createElement("ol", {
-    className: "ns-crumb-list"
-  }, crumbs.map(function(crumb, idx) {
-    var isLast = idx === crumbs.length - 1;
-    return /* @__PURE__ */ react_default.createElement(react_default.Fragment, {
-      key: crumb.href + ":" + idx
-    }, idx > 0 ? /* @__PURE__ */ react_default.createElement("li", {
-      className: "ns-crumb-sep",
-      "aria-hidden": "true"
-    }, "/") : null, /* @__PURE__ */ react_default.createElement("li", {
-      className: cx("ns-crumb-item", {
-        "is-current": isLast
-      })
-    }, isLast ? /* @__PURE__ */ react_default.createElement("span", {
-      "aria-current": "page"
-    }, crumb.label) : /* @__PURE__ */ react_default.createElement("a", {
-      href: crumb.href
-    }, crumb.label)));
-  })));
+  return /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-tiles"
+  }, props.categories.map(function(cat) {
+    return /* @__PURE__ */ react_default.createElement("li", {
+      key: cat.id,
+      className: "ns-tile"
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      href: nav.base + "/c/" + cat.slug
+    }, /* @__PURE__ */ react_default.createElement(ProductArt, {
+      category: cat.slug,
+      size: "tile"
+    }), /* @__PURE__ */ react_default.createElement("span", {
+      className: "ns-tile-label"
+    }, cat.label), /* @__PURE__ */ react_default.createElement("span", {
+      className: "ns-tile-count"
+    }, formatInt(cat.count, locale.groupSep), " products")));
+  }));
 }
 
 // src/lib/dates.js
+var DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 var MONTH_NAMES = [
   "Jan",
   "Feb",
@@ -441,184 +778,55 @@ function formatDateUTC(epochSec, includeTime) {
   var mm = Math.floor((remSec - hh * 3600) / 60);
   return base + " " + pad2(hh) + ":" + pad2(mm) + " UTC";
 }
-
-// src/components/layout/SiteFooter.jsx
-function SiteFooter(props) {
-  var theme = react_default.useContext(ThemeContext);
-  var locale = react_default.useContext(LocaleContext);
-  return /* @__PURE__ */ react_default.createElement("footer", {
-    className: "ns-footer"
-  }, /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-footer-copy"
-  }, "© Northstar Industrial Supply · Generated", " ", /* @__PURE__ */ react_default.createElement("time", null, formatDateUTC(props.timestampSec, true))), /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-footer-meta"
-  }, /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("span", null, "Locale: ", locale.code), " · ", /* @__PURE__ */ react_default.createElement("span", null, "Currency: ", locale.currency), " · ", /* @__PURE__ */ react_default.createElement("span", null, "Theme: ", theme))));
+function formatShortDate(epochSec) {
+  var days = Math.floor(Math.floor(epochSec) / 86400);
+  var weekday = ((days + 4) % 7 + 7) % 7;
+  var full = formatDateUTC(epochSec, false);
+  var day = full.slice(4, 6);
+  return DAY_NAMES[weekday] + ", " + full.slice(0, 3) + " " + (day.charAt(0) === "0" ? day.slice(1) : day);
 }
 
-// src/lib/text.js
-function computeInitials(name) {
-  if (!name) return "?";
-  var trimmed = name.trim();
-  if (!trimmed) return "?";
-  var parts = trimmed.split(/\s+/);
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-  return (parts[0].slice(0, 1) + parts[parts.length - 1].slice(0, 1)).toUpperCase();
-}
-
-// src/components/ui/AvatarBadge.jsx
-function AvatarBadge(props) {
-  var bg = props.color || "#0369a1";
-  return /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-avatar",
-    "aria-hidden": "true",
-    style: {
-      backgroundColor: bg,
-      color: "#ffffff",
-      width: 28,
-      height: 28,
-      lineHeight: "28px",
-      fontWeight: 700
-    }
-  }, computeInitials(props.name));
-}
-
-// src/components/account/LoyaltyBadge.jsx
-function LoyaltyBadge(props) {
-  var locale = react_default.useContext(LocaleContext);
-  var tier = props.tier || "member";
-  return /* @__PURE__ */ react_default.createElement("span", {
-    className: cx("ns-tier", "ns-tier-" + tier),
-    "data-tier": tier,
-    "data-points": props.points
-  }, tier.toUpperCase(), " (", formatInt(props.points, locale.groupSep), " pts)");
-}
-
-// src/components/account/UserMenu.jsx
-function UserMenu() {
-  var user = react_default.useContext(UserContext);
-  if (!user) {
-    return /* @__PURE__ */ react_default.createElement("div", {
-      className: "ns-user ns-user-anon",
-      "data-authenticated": false
-    }, /* @__PURE__ */ react_default.createElement("a", {
-      href: "/signin",
-      className: "ns-link"
-    }, "Sign in"), /* @__PURE__ */ react_default.createElement("a", {
-      href: "/register",
-      className: "ns-link ns-link-cta"
-    }, "Trade Account"));
-  }
-  return /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-user ns-user-auth",
-    "data-authenticated": true,
-    "data-user-id": user.id
-  }, /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement(AvatarBadge, {
-    name: user.name,
-    color: user.avatarColor
-  }), /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-greeting"
-  }, "Hi, ", user.name), /* @__PURE__ */ react_default.createElement(LoyaltyBadge, {
-    tier: user.tier,
-    points: user.points
-  }), user.savedCount > 0 ? /* @__PURE__ */ react_default.createElement("a", {
-    href: "/saved",
-    className: "ns-saved-link"
-  }, "Saved (", user.savedCount, ")") : null));
-}
-
-// src/components/search/SearchBox.jsx
-function SearchBox(props) {
-  var search = props.search;
-  var inputId = react_default.useId();
-  var hasQuery = Boolean(search.query && search.query.length > 0);
-  var submitExtra = {
-    "data-action": "catalog-search",
-    "aria-label": "Run catalog search"
+// src/components/product/AddToCartForm.jsx
+function AddToCartForm(props) {
+  var nav = react_default.useContext(NavContext);
+  var inStock = props.stock > 0;
+  var qtyId = react_default.useId();
+  var btnExtra = {
+    "data-add-sku": props.sku,
+    "aria-label": (inStock ? "Add to cart: " : "Out of stock: ") + props.title
   };
   return /* @__PURE__ */ react_default.createElement("form", {
-    className: "ns-search",
-    role: "search",
-    action: "/catalog",
-    method: "get"
+    className: props.withQty ? "ns-add ns-add-full" : "ns-add",
+    method: "post",
+    action: nav.base + "/cart/add"
+  }, /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "sku",
+    value: props.sku
+  }), /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "back",
+    value: nav.current
+  }), props.withQty ? /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-qty"
   }, /* @__PURE__ */ react_default.createElement("label", {
-    className: "ns-sr-only",
-    htmlFor: inputId
-  }, "Search hardware"), /* @__PURE__ */ react_default.createElement("input", {
-    type: "search",
-    id: inputId,
-    name: "q",
-    defaultValue: search.query,
-    placeholder: "Search SKU, tool, or spec...",
-    disabled: Boolean(search.disabled),
-    readOnly: Boolean(search.readOnly),
-    required: Boolean(search.required),
-    autoComplete: "off",
-    "data-has-query": hasQuery
-  }), /* @__PURE__ */ react_default.createElement(ActionButton, {
+    htmlFor: qtyId
+  }, "Qty"), /* @__PURE__ */ react_default.createElement("input", {
+    id: qtyId,
+    type: "number",
+    name: "qty",
+    min: 1,
+    max: 99,
+    defaultValue: 1,
+    disabled: !inStock,
+    inputMode: "numeric"
+  })) : null, /* @__PURE__ */ react_default.createElement(ActionButton, {
     type: "submit",
-    variant: "secondary",
-    size: "sm",
-    disabled: Boolean(search.disabled),
-    extraAttrs: submitExtra
-  }, "Search"));
-}
-
-// src/components/layout/PrimaryNav.jsx
-function NavItem(props) {
-  var cat = props.category;
-  var active = props.active;
-  return /* @__PURE__ */ react_default.createElement("li", {
-    className: cx("ns-nav-item", {
-      "is-active": active
-    })
-  }, /* @__PURE__ */ react_default.createElement("a", {
-    href: "/c/" + cat.slug,
-    "aria-current": active ? "page" : void 0,
-    "data-category": cat.slug
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-nav-label"
-  }, cat.label), /* @__PURE__ */ react_default.createElement(CountPill, {
-    count: cat.count,
-    hot: cat.hot
-  })));
-}
-function PrimaryNav(props) {
-  var categories = props.categories;
-  if (!categories || categories.length === 0) {
-    return null;
-  }
-  return /* @__PURE__ */ react_default.createElement("nav", {
-    className: "ns-nav",
-    "aria-label": "Categories"
-  }, /* @__PURE__ */ react_default.createElement("ul", {
-    className: "ns-nav-list"
-  }, categories.map(function(cat) {
-    return /* @__PURE__ */ react_default.createElement(NavItem, {
-      key: cat.id,
-      category: cat,
-      active: cat.slug === props.activeSlug
-    });
-  })));
-}
-
-// src/components/layout/SiteHeader.jsx
-function SiteHeader(props) {
-  return /* @__PURE__ */ react_default.createElement("header", {
-    className: "ns-header"
-  }, /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-header-top"
-  }, /* @__PURE__ */ react_default.createElement("a", {
-    href: "/",
-    className: "ns-brand",
-    "data-brand": "northstar"
-  }, "Northstar Supply"), /* @__PURE__ */ react_default.createElement(SearchBox, {
-    search: props.search
-  }), /* @__PURE__ */ react_default.createElement(UserMenu, null)), /* @__PURE__ */ react_default.createElement(PrimaryNav, {
-    categories: props.categories,
-    activeSlug: props.search.categorySlug
-  }));
+    variant: props.withQty ? "primary" : "secondary",
+    size: props.withQty ? "lg" : "sm",
+    disabled: !inStock,
+    extraAttrs: btnExtra
+  }, inStock ? "Add to cart" : "Out of stock"));
 }
 
 // src/components/product/PriceBlock.jsx
@@ -629,116 +837,101 @@ function PriceBlock(props) {
   var hasDiscount = typeof orig === "number" && orig > price && orig > 0;
   var pctOff = hasDiscount ? Math.round((orig - price) / orig * 100) : 0;
   return /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-price-block",
+    className: props.large ? "ns-price-block ns-price-large" : "ns-price-block",
     "data-on-sale": hasDiscount
   }, /* @__PURE__ */ react_default.createElement("span", {
     className: "ns-price-current"
-  }, formatMoney(price, locale)), hasDiscount ? /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("del", {
+  }, price === 0 ? "Free" : formatMoney(price, locale)), hasDiscount ? /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, /* @__PURE__ */ react_default.createElement("del", {
     className: "ns-price-orig"
-  }, formatMoney(orig, locale)), /* @__PURE__ */ react_default.createElement("span", {
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-sr-only"
+  }, "Was "), formatMoney(orig, locale)), /* @__PURE__ */ react_default.createElement("span", {
     className: "ns-price-save"
-  }, "Save ", pctOff, "%")) : null, typeof props.rebateAmount === "number" && props.rebateAmount !== 0 ? /* @__PURE__ */ react_default.createElement("span", {
+  }, "−", pctOff, "%")) : null, typeof props.rebateAmount === "number" && props.rebateAmount !== 0 ? /* @__PURE__ */ react_default.createElement("span", {
     className: "ns-price-rebate"
-  }, "Rebate: ", formatMoney(props.rebateAmount, locale)) : null);
+  }, formatMoney(props.rebateAmount, locale), " mail-in rebate") : null);
 }
 
 // src/components/product/StockBadge.jsx
 function StockBadge(props) {
   var stock = props.stock;
   if (stock <= 0) {
-    return /* @__PURE__ */ react_default.createElement("span", {
+    return /* @__PURE__ */ react_default.createElement("p", {
       className: "ns-stock ns-stock-out",
       "data-stock-state": "out"
     }, "Out of stock");
   }
   if (stock <= 5) {
-    return /* @__PURE__ */ react_default.createElement("span", {
+    return /* @__PURE__ */ react_default.createElement("p", {
       className: "ns-stock ns-stock-low",
       "data-stock-state": "low"
-    }, "Only ", stock, " left");
+    }, "Only ", stock, " left", typeof props.shipsAtSec === "number" ? " · Ships " + formatShortDate(props.shipsAtSec) : "");
   }
-  return /* @__PURE__ */ react_default.createElement("span", {
+  return /* @__PURE__ */ react_default.createElement("p", {
     className: "ns-stock ns-stock-in",
     "data-stock-state": "in"
-  }, "In stock", typeof props.shipsAtSec === "number" ? " · Ships " + formatDateUTC(props.shipsAtSec, false) : "");
+  }, "In stock", typeof props.shipsAtSec === "number" ? " · Ships " + formatShortDate(props.shipsAtSec) : "");
 }
 
-// src/components/product/HeroSpotlight.jsx
+// src/components/home/HeroSpotlight.jsx
 function HeroSpotlight(props) {
+  var nav = react_default.useContext(NavContext);
   var spot = props.spotlight;
   if (!spot) {
     return null;
   }
-  var ctaExtra = {
-    "data-spotlight-sku": spot.sku
-  };
   return /* @__PURE__ */ react_default.createElement("section", {
     className: "ns-spotlight",
-    "data-sku": spot.sku
+    "data-sku": spot.sku,
+    "aria-labelledby": "ns-spotlight-title"
   }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-spotlight-media"
+  }, /* @__PURE__ */ react_default.createElement(ProductArt, {
+    category: spot.category || "measuring",
+    eager: true
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-badge ns-badge-sale"
+  }, "Deal of the week")), /* @__PURE__ */ react_default.createElement("div", {
     className: "ns-spotlight-body"
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-spotlight-kicker"
-  }, "Deal of the Day"), /* @__PURE__ */ react_default.createElement("h2", {
-    className: "ns-spotlight-title"
-  }, spot.headline), spot.blurb ? /* @__PURE__ */ react_default.createElement("p", {
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-spotlight-title",
+    id: "ns-spotlight-title"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    href: nav.base + "/p/" + spot.sku
+  }, spot.headline)), spot.blurb ? /* @__PURE__ */ react_default.createElement("p", {
     className: "ns-spotlight-blurb"
-  }, spot.blurb) : null, /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-spotlight-ends"
-  }, "Ends ", formatDateUTC(spot.endsAtSec, true))), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-spotlight-aside"
-  }, /* @__PURE__ */ react_default.createElement(PriceBlock, {
+  }, spot.blurb) : null, /* @__PURE__ */ react_default.createElement(PriceBlock, {
     price: spot.price,
     originalPrice: spot.originalPrice
   }), /* @__PURE__ */ react_default.createElement(StockBadge, {
     stock: spot.stock
-  }), /* @__PURE__ */ react_default.createElement(ActionButton, {
-    variant: "primary",
-    disabled: spot.stock <= 0,
-    extraAttrs: ctaExtra
-  }, "View Deal")));
+  }), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-spotlight-ends"
+  }, "Offer ends ", formatShortDate(spot.endsAtSec)), /* @__PURE__ */ react_default.createElement(AddToCartForm, {
+    sku: spot.sku,
+    title: spot.headline,
+    stock: spot.stock
+  })));
 }
 
-// src/components/product/EmptyCatalogState.jsx
-function EmptyCatalogState(props) {
-  var resetExtra = {
-    "data-action": "reset-filters"
-  };
-  return /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-empty",
-    role: "status",
-    "data-query": props.query
-  }, /* @__PURE__ */ react_default.createElement("h3", {
-    className: "ns-empty-title"
-  }, "No matching products found"), /* @__PURE__ */ react_default.createElement("p", {
-    className: "ns-empty-desc"
-  }, props.query ? 'No hardware matched "' + props.query + '". Try clearing filters.' : "This category currently has 0 items available."), /* @__PURE__ */ react_default.createElement(ActionButton, {
-    variant: "secondary",
-    extraAttrs: resetExtra
-  }, "Reset Filters"));
-}
-
-// src/lib/theme.js
-function getThemePalette(theme) {
-  if (theme === "dark") {
-    return {
-      bg: "#0f172a",
-      fg: "#f8fafc",
-      accent: "#38bdf8"
-    };
-  }
-  if (theme === "contrast") {
-    return {
-      bg: "#000000",
-      fg: "#ffffff",
-      accent: "#facc15"
-    };
-  }
-  return {
-    bg: "#f8fafc",
-    fg: "#0f172a",
-    accent: "#0284c7"
-  };
+// src/components/home/ValueProps.jsx
+function ValueProps(props) {
+  var locale = react_default.useContext(LocaleContext);
+  return /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-values"
+  }, /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "truck",
+    size: 22
+  }), /* @__PURE__ */ react_default.createElement("strong", null, "Free shipping over ", formatMoney(props.freeShippingThreshold, locale)), /* @__PURE__ */ react_default.createElement("span", null, "Same-day dispatch on orders placed by 3 pm.")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "doc",
+    size: 22
+  }), /* @__PURE__ */ react_default.createElement("strong", null, "Net-30 trade accounts"), /* @__PURE__ */ react_default.createElement("span", null, "Invoice billing and tax-exempt purchasing.")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "shield",
+    size: 22
+  }), /* @__PURE__ */ react_default.createElement("strong", null, "2-year warranty"), /* @__PURE__ */ react_default.createElement("span", null, "Lifetime coverage on hand tools.")), /* @__PURE__ */ react_default.createElement("li", null, /* @__PURE__ */ react_default.createElement(Icon, {
+    name: "clock",
+    size: 22
+  }), /* @__PURE__ */ react_default.createElement("strong", null, "Calibration certificates"), /* @__PURE__ */ react_default.createElement("span", null, "Included with every measuring instrument.")));
 }
 
 // src/components/product/ProductBadges.jsx
@@ -750,13 +943,502 @@ function ProductBadges(props) {
   }
   return /* @__PURE__ */ react_default.createElement("div", {
     className: "ns-badges"
-  }, p.featured ? /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-badge ns-badge-featured"
-  }, "Featured") : null, onSale ? /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-badge ns-badge-sale"
-  }, "Sale") : null, p.clearance ? /* @__PURE__ */ react_default.createElement("span", {
+  }, p.clearance ? /* @__PURE__ */ react_default.createElement("span", {
     className: "ns-badge ns-badge-clearance"
-  }, "Clearance") : null);
+  }, "Clearance") : onSale ? /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-badge ns-badge-sale"
+  }, "Sale") : null, p.featured ? /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-badge ns-badge-featured"
+  }, "Best seller") : null);
+}
+
+// src/components/product/StarRating.jsx
+function StarRating(props) {
+  var rating = props.rating;
+  var count = props.reviewCount;
+  var clamped = rating < 0 ? 0 : rating > 5 ? 5 : rating;
+  var pct = Math.round(clamped / 5 * 100);
+  var locale = react_default.useContext(LocaleContext);
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-rating",
+    role: "img",
+    "aria-label": "Rated " + clamped.toFixed(1) + " out of 5, " + formatInt(count, locale.groupSep) + " reviews"
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-rating-track",
+    "aria-hidden": "true"
+  }, /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-rating-fill",
+    style: {
+      width: pct + "%",
+      opacity: count > 0 ? 1 : 0.35
+    }
+  })), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-rating-num",
+    "aria-hidden": "true"
+  }, clamped.toFixed(1)), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-rating-count",
+    "aria-hidden": "true"
+  }, "(", formatInt(count, locale.groupSep), ")"));
+}
+
+// src/components/product/ProductCard.jsx
+function ProductCard(props) {
+  var nav = react_default.useContext(NavContext);
+  var p = props.product;
+  var inStock = p.stock > 0;
+  var cardDataAttrs = {
+    "data-sku": p.sku,
+    "data-category": p.category,
+    "data-in-stock": inStock,
+    "data-featured": Boolean(p.featured)
+  };
+  return /* @__PURE__ */ react_default.createElement("article", Object.assign({}, cardDataAttrs, {
+    className: cx("ns-card", {
+      "ns-card-featured": Boolean(p.featured),
+      "ns-card-out": !inStock
+    })
+  }), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-card-media"
+  }, /* @__PURE__ */ react_default.createElement(ProductArt, {
+    category: p.category,
+    eager: props.index < 4
+  }), /* @__PURE__ */ react_default.createElement(ProductBadges, {
+    product: p
+  })), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-card-body"
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-card-brand"
+  }, p.brand), /* @__PURE__ */ react_default.createElement("h3", {
+    className: "ns-card-title"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-card-link",
+    href: nav.base + "/p/" + p.sku
+  }, p.title)), /* @__PURE__ */ react_default.createElement(StarRating, {
+    rating: p.rating,
+    reviewCount: p.reviewCount
+  }), /* @__PURE__ */ react_default.createElement(PriceBlock, {
+    price: p.price,
+    originalPrice: p.originalPrice,
+    rebateAmount: p.rebateAmount
+  }), /* @__PURE__ */ react_default.createElement(StockBadge, {
+    stock: p.stock,
+    shipsAtSec: p.shipsAtSec
+  })), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-card-actions"
+  }, /* @__PURE__ */ react_default.createElement(AddToCartForm, {
+    sku: p.sku,
+    title: p.title,
+    stock: p.stock
+  })));
+}
+
+// src/components/product/ProductGrid.jsx
+function ProductGrid(props) {
+  var products = props.products;
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: props.compact ? "ns-grid ns-grid-4" : "ns-grid",
+    "data-count": products.length
+  }, products.map(function(product, index) {
+    return /* @__PURE__ */ react_default.createElement(ProductCard, {
+      key: product.sku,
+      product: product,
+      index: index
+    });
+  }));
+}
+
+// src/pages/HomePage.jsx
+function HomePage(props) {
+  var nav = react_default.useContext(NavContext);
+  var home = props.home;
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-home"
+  }, /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-hero ns-container"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-hero-copy"
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-eyebrow"
+  }, "Industrial supply for working shops"), /* @__PURE__ */ react_default.createElement("h1", {
+    className: "ns-hero-title"
+  }, "Professional tools, shipped next day."), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-hero-lede"
+  }, "Measuring instruments, hand and power tools, cutting tools and safety gear from brands that hold tolerance. Trade pricing for teams, no minimum order."), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-hero-actions"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-primary ns-btn-lg",
+    href: nav.base + "/shop"
+  }, "Shop all products"), /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-secondary ns-btn-lg",
+    href: nav.base + "/signin"
+  }, "Open a trade account"))), /* @__PURE__ */ react_default.createElement(HeroSpotlight, {
+    spotlight: home.spotlight
+  })), /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-section ns-container",
+    "aria-labelledby": "ns-cats-title"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-section-head"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-section-heading",
+    id: "ns-cats-title"
+  }, "Shop by category")), /* @__PURE__ */ react_default.createElement(CategoryTiles, {
+    categories: props.categories
+  })), /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-section ns-container",
+    "aria-labelledby": "ns-featured-title"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-section-head"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-section-heading",
+    id: "ns-featured-title"
+  }, "Best sellers"), /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-section-link",
+    href: nav.base + "/shop"
+  }, "View all products")), /* @__PURE__ */ react_default.createElement(ProductGrid, {
+    products: props.products,
+    compact: true
+  })), /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-section ns-container",
+    "aria-label": "Why Northstar"
+  }, /* @__PURE__ */ react_default.createElement(ValueProps, {
+    freeShippingThreshold: props.cart.freeShippingThreshold
+  })));
+}
+
+// src/components/catalog/CatalogToolbar.jsx
+function CatalogToolbar(props) {
+  var sortId = react_default.useId();
+  var nav = react_default.useContext(NavContext);
+  var locale = react_default.useContext(LocaleContext);
+  var pag = props.pagination;
+  var stats = props.stats;
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-toolbar"
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-toolbar-summary"
+  }, pag.totalMatching === 0 ? "0 products" : /* @__PURE__ */ react_default.createElement(react_default.Fragment, null, "Showing", " ", /* @__PURE__ */ react_default.createElement("strong", null, formatInt(pag.firstIndex, locale.groupSep), "–", formatInt(pag.lastIndex, locale.groupSep)), " ", "of ", /* @__PURE__ */ react_default.createElement("strong", null, formatInt(pag.totalMatching, locale.groupSep)), stats.onSaleCount > 0 ? " · " + stats.onSaleCount + " on sale" : "")), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-toolbar-sort"
+  }, /* @__PURE__ */ react_default.createElement("label", {
+    htmlFor: sortId
+  }, "Sort by"), /* @__PURE__ */ react_default.createElement("select", {
+    id: sortId,
+    name: "sort",
+    form: "ns-filter-form",
+    defaultValue: props.sortBy
+  }, /* @__PURE__ */ react_default.createElement("option", {
+    value: "featured"
+  }, "Featured"), /* @__PURE__ */ react_default.createElement("option", {
+    value: "price-asc"
+  }, "Price: low to high"), /* @__PURE__ */ react_default.createElement("option", {
+    value: "price-desc"
+  }, "Price: high to low"), /* @__PURE__ */ react_default.createElement("option", {
+    value: "rating"
+  }, "Top rated")), /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    form: "ns-filter-form",
+    className: "ns-btn ns-btn-secondary ns-btn-sm ns-nojs"
+  }, "Sort")), props.activeFilters.length > 0 ? /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-chips",
+    "aria-label": "Active filters"
+  }, props.activeFilters.map(function(f) {
+    return /* @__PURE__ */ react_default.createElement("li", {
+      key: f.key
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      className: "ns-chip",
+      href: nav.base + f.href,
+      "aria-label": "Remove filter: " + f.label
+    }, f.label, /* @__PURE__ */ react_default.createElement(Icon, {
+      name: "close",
+      size: 14
+    })));
+  })) : null);
+}
+
+// src/components/catalog/PaginationBar.jsx
+function PaginationBar(props) {
+  var nav = react_default.useContext(NavContext);
+  var locale = react_default.useContext(LocaleContext);
+  var pag = props.pagination;
+  if (!pag || pag.totalPages <= 1) {
+    return null;
+  }
+  var prefix = nav.base + pag.hrefPrefix;
+  if (pag.showingAll) {
+    return /* @__PURE__ */ react_default.createElement("nav", {
+      className: "ns-pagination",
+      "aria-label": "Pagination"
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      className: "ns-page-link ns-page-wide",
+      href: prefix + "1"
+    }, "Show ", pag.pageSize, " per page"));
+  }
+  var pages = [];
+  var start = Math.max(1, Math.min(pag.currentPage - 2, pag.totalPages - 4));
+  var end = Math.min(pag.totalPages, start + 4);
+  for (var p = start; p <= end; p++) {
+    pages.push(p);
+  }
+  var hasPrev = pag.currentPage > 1;
+  var hasNext = pag.currentPage < pag.totalPages;
+  return /* @__PURE__ */ react_default.createElement("nav", {
+    className: "ns-pagination",
+    "aria-label": "Pagination"
+  }, hasPrev ? /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-page-link ns-page-wide",
+    href: prefix + (pag.currentPage - 1),
+    rel: "prev"
+  }, "Previous") : /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-page-link ns-page-wide is-disabled"
+  }, "Previous"), pages.map(function(pageNum) {
+    var active = pageNum === pag.currentPage;
+    return /* @__PURE__ */ react_default.createElement("a", {
+      key: "page-" + pageNum,
+      href: prefix + pageNum,
+      className: cx("ns-page-link", {
+        "is-active": active
+      }),
+      "aria-current": active ? "page" : void 0
+    }, pageNum);
+  }), hasNext ? /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-page-link ns-page-wide",
+    href: prefix + (pag.currentPage + 1),
+    rel: "next"
+  }, "Next") : /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-page-link ns-page-wide is-disabled"
+  }, "Next"), /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-page-all",
+    href: prefix + "all"
+  }, "View all ", formatInt(pag.totalMatching, locale.groupSep)));
+}
+
+// src/components/ui/CountPill.jsx
+function CountPill(props) {
+  var locale = react_default.useContext(LocaleContext);
+  var count = props.count;
+  return /* @__PURE__ */ react_default.createElement("span", {
+    className: cx("ns-pill", {
+      "ns-pill-hot": Boolean(props.hot)
+    }),
+    hidden: count <= 0,
+    "data-zero": count === 0
+  }, formatInt(count, locale.groupSep));
+}
+
+// src/components/filters/FilterOption.jsx
+function FilterOption(props) {
+  var opt = props.option;
+  var optId = react_default.useId();
+  var disabled = Boolean(props.groupDisabled || opt.count === 0 && !opt.selected);
+  return /* @__PURE__ */ react_default.createElement("li", {
+    className: cx("ns-filter-opt", {
+      "is-selected": opt.selected,
+      "is-disabled": disabled
+    })
+  }, /* @__PURE__ */ react_default.createElement("input", {
+    type: "checkbox",
+    id: optId,
+    name: props.groupId,
+    value: opt.value,
+    defaultChecked: Boolean(opt.selected),
+    disabled: disabled
+  }), /* @__PURE__ */ react_default.createElement("label", {
+    htmlFor: optId
+  }, opt.label), /* @__PURE__ */ react_default.createElement(CountPill, {
+    count: opt.count,
+    hot: false
+  }));
+}
+
+// src/components/filters/FilterGroup.jsx
+function FilterGroup(props) {
+  var group = props.group;
+  return /* @__PURE__ */ react_default.createElement("fieldset", {
+    className: "ns-filter-group",
+    disabled: Boolean(group.disabled),
+    "data-filter-key": group.id
+  }, /* @__PURE__ */ react_default.createElement("legend", {
+    className: "ns-filter-legend"
+  }, group.title), group.options.length === 0 ? /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-filter-empty"
+  }, "No options") : /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-filter-list"
+  }, group.options.map(function(opt) {
+    return /* @__PURE__ */ react_default.createElement(FilterOption, {
+      key: opt.value,
+      groupId: group.id,
+      groupDisabled: group.disabled,
+      option: opt
+    });
+  })));
+}
+
+// src/components/filters/FilterSidebar.jsx
+function FilterSidebar(props) {
+  var nav = react_default.useContext(NavContext);
+  var headingId = react_default.useId();
+  var stockToggleId = react_default.useId();
+  var filters = props.filters;
+  return /* @__PURE__ */ react_default.createElement("aside", {
+    className: "ns-sidebar",
+    "aria-labelledby": headingId
+  }, /* @__PURE__ */ react_default.createElement("details", {
+    className: "ns-filters",
+    open: true
+  }, /* @__PURE__ */ react_default.createElement("summary", {
+    className: "ns-filters-summary"
+  }, "Filters", props.activeCount > 0 ? /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-filters-count"
+  }, props.activeCount) : null), /* @__PURE__ */ react_default.createElement("form", {
+    id: "ns-filter-form",
+    className: "ns-filter-form",
+    method: "get",
+    action: nav.base + nav.path,
+    "data-autosubmit": "true"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    id: headingId,
+    className: "ns-sidebar-title"
+  }, "Filters"), props.query ? /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "q",
+    value: props.query
+  }) : null, /* @__PURE__ */ react_default.createElement("fieldset", {
+    className: "ns-filter-group"
+  }, /* @__PURE__ */ react_default.createElement("legend", {
+    className: "ns-filter-legend"
+  }, "Availability"), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-filter-opt"
+  }, /* @__PURE__ */ react_default.createElement("input", {
+    type: "checkbox",
+    id: stockToggleId,
+    name: "in_stock",
+    value: "1",
+    defaultChecked: Boolean(props.inStockOnly)
+  }), /* @__PURE__ */ react_default.createElement("label", {
+    htmlFor: stockToggleId
+  }, "In stock only"))), filters.map(function(group) {
+    return /* @__PURE__ */ react_default.createElement(FilterGroup, {
+      key: group.id,
+      group: group
+    });
+  }), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-filter-actions"
+  }, /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    className: "ns-btn ns-btn-secondary ns-btn-sm ns-nojs"
+  }, "Apply filters"), props.activeCount > 0 ? /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-filter-clear",
+    href: nav.base + props.clearHref
+  }, "Clear all") : null))));
+}
+
+// src/components/product/EmptyCatalogState.jsx
+function EmptyCatalogState(props) {
+  var nav = react_default.useContext(NavContext);
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty",
+    role: "status",
+    "data-query": props.query
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty-art",
+    "aria-hidden": "true"
+  }), /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-empty-title"
+  }, props.query ? "No results for “" + props.query + "”" : "No products match these filters"), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-empty-desc"
+  }, props.query ? "Check the spelling, use fewer words, or try a category below." : "Try removing a filter or browse another category."), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty-actions"
+  }, props.hasFilters ? /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-primary",
+    href: nav.base + props.clearHref
+  }, "Clear filters") : /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-primary",
+    href: nav.base + "/shop"
+  }, "Browse all products")), /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-empty-cats",
+    "aria-label": "Categories"
+  }, props.categories.map(function(cat) {
+    return /* @__PURE__ */ react_default.createElement("li", {
+      key: cat.id
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      href: nav.base + "/c/" + cat.slug
+    }, cat.label));
+  })));
+}
+
+// src/pages/ListingPage.jsx
+function ListingPage(props) {
+  var listing = props.listing;
+  var search = props.search;
+  var products = props.products;
+  var activeFilters = props.activeFilters;
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-listing ns-container",
+    "data-kind": listing.kind
+  }, /* @__PURE__ */ react_default.createElement("header", {
+    className: "ns-page-head"
+  }, /* @__PURE__ */ react_default.createElement("h1", {
+    className: "ns-page-title"
+  }, listing.title), listing.description ? /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-page-desc"
+  }, listing.description) : null), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-layout"
+  }, /* @__PURE__ */ react_default.createElement(FilterSidebar, {
+    filters: props.filters,
+    inStockOnly: search.inStockOnly,
+    query: listing.kind === "search" ? search.query : "",
+    activeCount: activeFilters.length,
+    clearHref: listing.clearHref
+  }), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-results"
+  }, /* @__PURE__ */ react_default.createElement(CatalogToolbar, {
+    stats: props.stats,
+    pagination: listing.pagination,
+    sortBy: search.sortBy,
+    activeFilters: activeFilters
+  }), products.length === 0 ? /* @__PURE__ */ react_default.createElement(EmptyCatalogState, {
+    query: search.query,
+    hasFilters: activeFilters.length > 0,
+    clearHref: listing.clearHref,
+    categories: props.categories
+  }) : /* @__PURE__ */ react_default.createElement(ProductGrid, {
+    products: products
+  }), /* @__PURE__ */ react_default.createElement(PaginationBar, {
+    pagination: listing.pagination
+  }))));
+}
+
+// src/pages/NotFoundPage.jsx
+function NotFoundPage(props) {
+  var nav = react_default.useContext(NavContext);
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-container"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty ns-notfound",
+    role: "status"
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-eyebrow"
+  }, "Error 404"), /* @__PURE__ */ react_default.createElement("h1", {
+    className: "ns-empty-title"
+  }, "We couldn’t find that page"), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-empty-desc"
+  }, "The link may be out of date, or the product is no longer stocked. Try searching, or start from a category."), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-empty-actions"
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-primary",
+    href: nav.base + "/"
+  }, "Go to the home page"), /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-btn ns-btn-secondary",
+    href: nav.base + "/shop"
+  }, "All products")), /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-empty-cats",
+    "aria-label": "Categories"
+  }, props.categories.map(function(cat) {
+    return /* @__PURE__ */ react_default.createElement("li", {
+      key: cat.id
+    }, /* @__PURE__ */ react_default.createElement("a", {
+      href: nav.base + "/c/" + cat.slug
+    }, cat.label));
+  }))));
 }
 
 // src/components/product/ReviewSnippet.jsx
@@ -765,18 +1447,18 @@ function ReviewSnippet(props) {
   if (!review) {
     return null;
   }
-  return /* @__PURE__ */ react_default.createElement("blockquote", {
+  return /* @__PURE__ */ react_default.createElement("figure", {
     className: "ns-review",
     "data-verified": Boolean(review.verified)
-  }, /* @__PURE__ */ react_default.createElement("p", {
+  }, /* @__PURE__ */ react_default.createElement("blockquote", {
     className: "ns-review-body"
-  }, "“", review.body, "”"), /* @__PURE__ */ react_default.createElement("footer", {
+  }, /* @__PURE__ */ react_default.createElement("p", null, "“", review.body, "”")), /* @__PURE__ */ react_default.createElement("figcaption", {
     className: "ns-review-meta"
   }, /* @__PURE__ */ react_default.createElement("span", {
     className: "ns-review-author"
   }, review.author), review.verified ? /* @__PURE__ */ react_default.createElement("span", {
     className: "ns-review-badge"
-  }, "Verified Buyer") : null, /* @__PURE__ */ react_default.createElement("time", {
+  }, "Verified buyer") : null, /* @__PURE__ */ react_default.createElement("time", {
     className: "ns-review-date"
   }, formatDateUTC(review.createdAtSec, false))));
 }
@@ -800,181 +1482,249 @@ function SpecList(props) {
   }));
 }
 
-// src/components/product/StarRating.jsx
-function StarRating(props) {
-  var rating = props.rating;
-  var count = props.reviewCount;
-  var clamped = rating < 0 ? 0 : rating > 5 ? 5 : rating;
-  var pct = Math.round(clamped / 5 * 100);
-  var locale = react_default.useContext(LocaleContext);
-  return /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-rating",
-    "aria-label": "Rated " + clamped.toFixed(1) + " out of 5"
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-rating-track",
-    "aria-hidden": "true"
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-rating-fill",
-    style: {
-      width: pct + "%",
-      opacity: count > 0 ? 1 : 0.35
-    }
-  })), /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-rating-num"
-  }, clamped.toFixed(1)), /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-rating-count"
-  }, "(", formatInt(count, locale.groupSep), ")"));
-}
-
-// src/components/product/ProductCard.jsx
-function ProductCard(props) {
+// src/components/product/ProductDetail.jsx
+function ProductDetail(props) {
   var p = props.product;
-  var theme = react_default.useContext(ThemeContext);
-  var palette = getThemePalette(theme);
-  var inStock = p.stock > 0;
-  var cardDataAttrs = {
-    "data-sku": p.sku,
-    "data-category": p.category,
-    "data-in-stock": inStock,
-    "data-featured": Boolean(p.featured)
-  };
-  var btnExtra = {
-    "data-add-sku": p.sku,
-    "aria-label": (inStock ? "Add to cart: " : "Unavailable: ") + p.title
-  };
-  return /* @__PURE__ */ react_default.createElement("article", Object.assign({}, cardDataAttrs, {
-    itemScope: true,
-    className: cx("ns-card", {
-      "ns-card-featured": Boolean(p.featured),
-      "ns-card-out": !inStock
-    }),
-    style: {
-      borderColor: p.featured ? palette.accent : void 0,
-      order: props.index
-    }
+  var locale = react_default.useContext(LocaleContext);
+  return /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-pdp",
+    "data-sku": p.sku
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-pdp-media"
+  }, /* @__PURE__ */ react_default.createElement(ProductArt, {
+    category: p.category,
+    size: "large",
+    eager: true
   }), /* @__PURE__ */ react_default.createElement(ProductBadges, {
     product: p
-  }), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-card-head"
-  }, /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-card-brand"
-  }, p.brand), /* @__PURE__ */ react_default.createElement("span", {
-    className: "ns-card-sku"
-  }, "#", p.sku)), /* @__PURE__ */ react_default.createElement("h3", {
-    className: "ns-card-title"
-  }, /* @__PURE__ */ react_default.createElement("a", {
-    href: "/p/" + p.sku,
-    title: p.title
-  }, p.title)), /* @__PURE__ */ react_default.createElement(StarRating, {
+  })), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-pdp-info"
+  }, /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-pdp-brand"
+  }, p.brand), /* @__PURE__ */ react_default.createElement("h1", {
+    className: "ns-pdp-title"
+  }, p.title), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-pdp-meta"
+  }, /* @__PURE__ */ react_default.createElement(StarRating, {
     rating: p.rating,
     reviewCount: p.reviewCount
-  }), /* @__PURE__ */ react_default.createElement(SpecList, {
-    specs: p.specs
-  }), /* @__PURE__ */ react_default.createElement(PriceBlock, {
+  }), /* @__PURE__ */ react_default.createElement("span", {
+    className: "ns-pdp-sku"
+  }, "SKU ", p.sku)), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-pdp-buy"
+  }, /* @__PURE__ */ react_default.createElement(PriceBlock, {
     price: p.price,
     originalPrice: p.originalPrice,
-    rebateAmount: p.rebateAmount
-  }), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-card-footer"
-  }, /* @__PURE__ */ react_default.createElement(StockBadge, {
+    rebateAmount: p.rebateAmount,
+    large: true
+  }), /* @__PURE__ */ react_default.createElement(StockBadge, {
     stock: p.stock,
     shipsAtSec: p.shipsAtSec
-  }), /* @__PURE__ */ react_default.createElement(ActionButton, {
-    variant: inStock ? "primary" : "ghost",
-    size: "sm",
-    disabled: !inStock,
-    extraAttrs: btnExtra
-  }, inStock ? "Add to Cart" : "Notify Me")), /* @__PURE__ */ react_default.createElement(ReviewSnippet, {
+  }), /* @__PURE__ */ react_default.createElement(AddToCartForm, {
+    sku: p.sku,
+    title: p.title,
+    stock: p.stock,
+    withQty: true
+  }), /* @__PURE__ */ react_default.createElement("ul", {
+    className: "ns-pdp-perks"
+  }, /* @__PURE__ */ react_default.createElement("li", null, "Free shipping on orders over ", formatMoney(props.freeShippingThreshold, locale)), /* @__PURE__ */ react_default.createElement("li", null, "30-day returns · 2-year warranty"))), /* @__PURE__ */ react_default.createElement("div", {
+    className: cx("ns-pdp-section", {
+      "is-empty": props.specs.length === 0
+    })
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-section-title"
+  }, "Specifications"), /* @__PURE__ */ react_default.createElement(SpecList, {
+    specs: props.specs
+  })), /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-pdp-section"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-section-title"
+  }, "Description"), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-pdp-desc"
+  }, p.description)), p.topReview ? /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-pdp-section"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-section-title"
+  }, "Top review"), /* @__PURE__ */ react_default.createElement(ReviewSnippet, {
     review: p.topReview
-  }));
+  })) : null));
 }
 
-// src/components/product/ProductGrid.jsx
-function ProductGrid(props) {
-  var products = props.products;
-  if (products.length === 0) {
-    return /* @__PURE__ */ react_default.createElement(EmptyCatalogState, {
-      query: props.query
-    });
+// src/pages/ProductPage.jsx
+function ProductPage(props) {
+  var product = props.product;
+  return /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-product-page ns-container"
+  }, /* @__PURE__ */ react_default.createElement(ProductDetail, {
+    product: product,
+    specs: props.specs,
+    freeShippingThreshold: props.cart.freeShippingThreshold
+  }), props.related.length > 0 ? /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-section",
+    "aria-labelledby": "ns-related-title"
+  }, /* @__PURE__ */ react_default.createElement("div", {
+    className: "ns-section-head"
+  }, /* @__PURE__ */ react_default.createElement("h2", {
+    className: "ns-section-heading",
+    id: "ns-related-title"
+  }, "Related tools")), /* @__PURE__ */ react_default.createElement(ProductGrid, {
+    products: props.related,
+    compact: true
+  })) : null);
+}
+
+// src/pages/SignInPage.jsx
+function SignInPage() {
+  var nav = react_default.useContext(NavContext);
+  var user = react_default.useContext(UserContext);
+  var emailId = react_default.useId();
+  var passwordId = react_default.useId();
+  if (user) {
+    return /* @__PURE__ */ react_default.createElement("div", {
+      className: "ns-auth ns-container"
+    }, /* @__PURE__ */ react_default.createElement("section", {
+      className: "ns-auth-card"
+    }, /* @__PURE__ */ react_default.createElement("div", {
+      className: "ns-account"
+    }, /* @__PURE__ */ react_default.createElement(AvatarBadge, {
+      name: user.name,
+      color: user.avatarColor
+    }), /* @__PURE__ */ react_default.createElement("div", null, /* @__PURE__ */ react_default.createElement("h1", {
+      className: "ns-auth-title"
+    }, user.name), /* @__PURE__ */ react_default.createElement("p", {
+      className: "ns-auth-sub"
+    }, "Trade account ", /* @__PURE__ */ react_default.createElement(LoyaltyBadge, {
+      tier: user.tier,
+      points: user.points
+    })))), /* @__PURE__ */ react_default.createElement("p", {
+      className: "ns-auth-note"
+    }, "Your tier discount is applied to the cart automatically."), /* @__PURE__ */ react_default.createElement("form", {
+      method: "post",
+      action: nav.base + "/signout"
+    }, /* @__PURE__ */ react_default.createElement("button", {
+      type: "submit",
+      className: "ns-btn ns-btn-secondary ns-btn-block"
+    }, "Sign out"))));
   }
   return /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-grid",
-    "data-count": products.length
-  }, products.map(function(product, index) {
-    return /* @__PURE__ */ react_default.createElement(ProductCard, {
-      key: product.sku,
-      product: product,
-      index: index
-    });
-  }));
+    className: "ns-auth ns-container"
+  }, /* @__PURE__ */ react_default.createElement("section", {
+    className: "ns-auth-card"
+  }, /* @__PURE__ */ react_default.createElement("h1", {
+    className: "ns-auth-title"
+  }, "Sign in"), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-auth-sub"
+  }, "Use your trade account for team pricing and Net-30 terms."), /* @__PURE__ */ react_default.createElement("form", {
+    className: "ns-auth-form",
+    method: "post",
+    action: nav.base + "/signin"
+  }, /* @__PURE__ */ react_default.createElement("input", {
+    type: "hidden",
+    name: "back",
+    value: "/"
+  }), /* @__PURE__ */ react_default.createElement("label", {
+    htmlFor: emailId
+  }, "Work email"), /* @__PURE__ */ react_default.createElement("input", {
+    id: emailId,
+    type: "email",
+    name: "email",
+    autoComplete: "username",
+    defaultValue: "maya@linfabrication.com"
+  }), /* @__PURE__ */ react_default.createElement("label", {
+    htmlFor: passwordId
+  }, "Password"), /* @__PURE__ */ react_default.createElement("input", {
+    id: passwordId,
+    type: "password",
+    name: "password",
+    autoComplete: "current-password",
+    placeholder: "Any password works in the demo"
+  }), /* @__PURE__ */ react_default.createElement("button", {
+    type: "submit",
+    className: "ns-btn ns-btn-primary ns-btn-lg ns-btn-block"
+  }, "Sign in")), /* @__PURE__ */ react_default.createElement("p", {
+    className: "ns-auth-note"
+  }, "Demo store: signing in uses a sample trade account, and no password is checked.")));
 }
 
-// src/pages/CatalogPage.jsx
-function CatalogPage(props) {
+// src/pages/StorePage.jsx
+function StorePage(props) {
   var data = props.data;
   var theme = react_default.useContext(ThemeContext);
   var locale = react_default.useContext(LocaleContext);
-  var palette = getThemePalette(theme);
+  var nav = react_default.useContext(NavContext);
+  var user = react_default.useContext(UserContext);
+  var cart = data.cart;
+  var totals = react_default.useMemo(function() {
+    return computeCartTotals(cart, user);
+  }, [cart, user]);
+  var products = data.products;
+  var stats = react_default.useMemo(function() {
+    return computeCatalogStats(products);
+  }, [products]);
+  var view = nav.view;
   return /* @__PURE__ */ react_default.createElement("div", {
     id: "northstar-app",
-    className: cx("ns-shell", "ns-theme-" + theme, {
-      "ns-compact": Boolean(data.compactMode)
-    }),
+    className: "ns-shell ns-theme-" + theme,
     "data-theme": theme,
     "data-locale": locale.code,
-    "data-request-id": data.requestId,
-    style: {
-      backgroundColor: palette.bg,
-      color: palette.fg,
-      minHeight: "100vh"
-    }
-  }, /* @__PURE__ */ react_default.createElement(AnnouncementBanner, {
+    "data-view": view
+  }, /* @__PURE__ */ react_default.createElement("a", {
+    className: "ns-skip",
+    href: "#ns-main"
+  }, "Skip to content"), /* @__PURE__ */ react_default.createElement(AnnouncementBanner, {
     promo: data.promo
   }), /* @__PURE__ */ react_default.createElement(SiteHeader, {
     search: data.search,
-    categories: data.categories
+    categories: data.categories,
+    cartCount: totals.unitCount
+  }), /* @__PURE__ */ react_default.createElement("main", {
+    className: "ns-main",
+    id: "ns-main"
+  }, /* @__PURE__ */ react_default.createElement(FlashMessage, {
+    flash: data.flash
   }), /* @__PURE__ */ react_default.createElement(Breadcrumbs, {
     breadcrumbs: data.breadcrumbs
-  }), /* @__PURE__ */ react_default.createElement("div", {
-    className: "ns-layout"
-  }, /* @__PURE__ */ react_default.createElement(FilterSidebar, {
-    filters: data.filters,
-    inStockOnly: data.search.inStockOnly
-  }), /* @__PURE__ */ react_default.createElement("main", {
-    className: "ns-main"
-  }, /* @__PURE__ */ react_default.createElement(HeroSpotlight, {
-    spotlight: data.spotlight
-  }), /* @__PURE__ */ react_default.createElement(CatalogToolbar, {
-    stats: props.stats,
-    totalMatching: data.pagination.totalMatching,
-    sortBy: data.search.sortBy
-  }), /* @__PURE__ */ react_default.createElement(ProductGrid, {
+  }), view === "home" && data.home ? /* @__PURE__ */ react_default.createElement(HomePage, {
+    home: data.home,
     products: data.products,
-    query: data.search.query
-  }), /* @__PURE__ */ react_default.createElement(PaginationBar, {
-    pagination: data.pagination
-  })), /* @__PURE__ */ react_default.createElement(CartSummaryAside, {
-    cart: data.cart
+    categories: data.categories,
+    cart: cart
+  }) : view === "listing" && data.listing ? /* @__PURE__ */ react_default.createElement(ListingPage, {
+    listing: data.listing,
+    products: data.products,
+    stats: stats,
+    filters: data.filters,
+    activeFilters: data.activeFilters,
+    search: data.search,
+    categories: data.categories
+  }) : view === "product" && data.product ? /* @__PURE__ */ react_default.createElement(ProductPage, {
+    product: data.product,
+    specs: data.specs,
+    related: data.products,
+    cart: cart
+  }) : view === "cart" ? /* @__PURE__ */ react_default.createElement(CartPage, {
+    cart: cart,
+    totals: totals
+  }) : view === "signin" ? /* @__PURE__ */ react_default.createElement(SignInPage, null) : /* @__PURE__ */ react_default.createElement(NotFoundPage, {
+    categories: data.categories
   })), /* @__PURE__ */ react_default.createElement(SiteFooter, {
-    timestampSec: data.timestampSec
+    categories: data.categories
   }));
 }
 
 // src/App.jsx
 function App(props) {
   var data = props.data;
-  var stats = react_default.useMemo(function() {
-    return computeCatalogStats(data.products);
-  }, [data.products]);
   return /* @__PURE__ */ react_default.createElement(ThemeContext.Provider, {
     value: data.theme
   }, /* @__PURE__ */ react_default.createElement(LocaleContext.Provider, {
     value: data.locale
   }, /* @__PURE__ */ react_default.createElement(UserContext.Provider, {
     value: data.user
-  }, /* @__PURE__ */ react_default.createElement(CatalogPage, {
-    data: data,
-    stats: stats
-  }))));
+  }, /* @__PURE__ */ react_default.createElement(NavContext.Provider, {
+    value: data.nav
+  }, /* @__PURE__ */ react_default.createElement(StorePage, {
+    data: data
+  })))));
 }
 module.exports = App;

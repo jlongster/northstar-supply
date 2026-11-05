@@ -1,6 +1,8 @@
 "use strict";
 
-// Deterministic seeded PRNG (Mulberry32) and request corpus generator for react-bench.
+// Deterministic seeded PRNG (Mulberry32) and the benchmark corpus generator: request data with the
+// live store's shape (see store/page.js) but random, escaping-heavy content, random locales and
+// themes. The live server does not use it; it builds pages from store/catalog.js and the request.
 // Zero Math.random(), zero Date.now(), zero Intl — 100% reproducible across platforms.
 
 function mulberry32(seed) {
@@ -31,7 +33,7 @@ function makeRng(seed) {
   };
 }
 
-const THEMES = ["light", "dark", "contrast"];
+const THEMES = ["light", "dark"];
 
 const LOCALES = [
   { code: "en-US", currency: "USD", symbol: "$", decimals: 2, groupSep: ",", decSep: "." },
@@ -217,66 +219,59 @@ function generateProduct(rng, idx, locale) {
   return product;
 }
 
+const VIEWS_SMALL = [
+  ["listing", 0.55],
+  ["product", 0.17],
+  ["home", 0.1],
+  ["cart", 0.1],
+  ["signin", 0.05],
+  ["notfound", 0.03],
+];
+const BASE_PATHS = ["", "/northstar/react", "/store/v2", '/q?a=1&b="2"'];
+const FLASH_TEXTS = ["Added <Fein> Carbide End Mill to your cart.", "Cart updated.", `Signed in as O'Malley & Sons.`];
+
+function pickView(rng) {
+  let roll = rng.float();
+  for (const [view, p] of VIEWS_SMALL) {
+    if (roll < p) return view;
+    roll -= p;
+  }
+  return "listing";
+}
+
+// Benchmark request data: the same shape as the live store's (store/page.js), filled with random,
+// escaping-heavy content, random locales and themes. "large" is a listing of ~200 products.
 function generateRequest(seed, variant = "small") {
   const rng = makeRng(seed);
   const isLarge = variant === "large";
   const locale = rng.pick(LOCALES);
   const scale = locale.decimals === 0 ? 110 : 1;
   const theme = rng.pick(THEMES);
+  const view = isLarge ? "listing" : pickView(rng);
+  const base = rng.pick(BASE_PATHS);
 
-  const catCount = isLarge ? rng.int(6, 8) : rng.int(0, 2);
+  const catCount = isLarge ? rng.int(6, 8) : rng.int(0, 3);
   const categories = [];
   for (let i = 0; i < catCount; i++) {
-    const base = CATEGORY_POOL[i % CATEGORY_POOL.length];
+    const c = CATEGORY_POOL[i % CATEGORY_POOL.length];
     categories.push({
-      id: base.id,
-      slug: base.slug,
-      label: base.label,
+      id: c.id,
+      slug: c.slug,
+      label: c.label,
       count: rng.bool(0.12) ? 0 : rng.int(1, 2400),
       hot: rng.bool(0.25) ? true : undefined,
     });
   }
-
   const activeSlug = categories.length > 0 && rng.bool(0.7) ? rng.pick(categories).slug : "all";
+  const query = rng.pick(NASTY_QUERIES);
+  const path = view === "listing" ? (query ? "/search" : "/c/" + activeSlug) : view === "product" ? "/p/NS-" + rng.int(1000, 9999) : view === "home" ? "/" : "/" + view;
 
-  const crumbCount = isLarge ? rng.int(2, 4) : rng.int(0, 2);
+  const crumbCount = view === "home" ? 0 : isLarge ? rng.int(2, 4) : rng.int(0, 3);
   const breadcrumbs = [];
   if (crumbCount >= 1) breadcrumbs.push({ href: "/", label: "Home" });
   if (crumbCount >= 2) breadcrumbs.push({ href: "/catalog", label: "Catalog & Supply" });
   if (crumbCount >= 3) breadcrumbs.push({ href: "/c/" + activeSlug, label: "Category: " + activeSlug });
   if (crumbCount >= 4) breadcrumbs.push({ href: "/c/" + activeSlug + "/featured", label: ' Precision <"A+"> ' });
-
-  const filterGroupCount = isLarge ? rng.int(3, 4) : rng.bool(0.55) ? 1 : 0;
-  const filters = [];
-  for (let g = 0; g < filterGroupCount; g++) {
-    const optCount = isLarge ? rng.int(3, 5) : rng.int(1, 2);
-    const options = [];
-    for (let o = 0; o < optCount; o++) {
-      options.push({
-        value: "opt-" + g + "-" + o,
-        label: g === 0 ? BRANDS[(seed + o) % BRANDS.length] : SPEC_VALUES[(seed + o) % SPEC_VALUES.length],
-        count: rng.bool(0.15) ? 0 : rng.int(1, 180),
-        selected: rng.bool(0.3),
-      });
-    }
-    filters.push({
-      id: "fg-" + g,
-      title: g === 0 ? "Brand" : g === 1 ? "Specification" : g === 2 ? "Certification" : "Availability",
-      disabled: rng.bool(0.1) ? true : undefined,
-      options,
-    });
-  }
-
-  const productCount = isLarge
-    ? rng.int(170, 210)
-    : rng.bool(0.18)
-    ? 0
-    : rng.int(1, 2);
-
-  const products = [];
-  for (let i = 0; i < productCount; i++) {
-    products.push(generateProduct(rng, i, locale));
-  }
 
   const user = rng.bool(0.6)
     ? {
@@ -293,49 +288,35 @@ function generateRequest(seed, variant = "small") {
     ? {
         active: rng.bool(0.82),
         urgent: rng.bool(0.35),
-        code: "PRO" + rng.int(10, 99),
+        code: rng.bool(0.7) ? "PRO" + rng.int(10, 99) : undefined,
         html: rng.pick(PROMO_HTML_SNIPPETS),
         minOrder: rng.bool(0.5) ? cleanNum(rng.int(50, 250) * scale) : undefined,
       }
     : null;
 
-  const spotlight = (isLarge ? rng.bool(0.8) : rng.bool(0.25))
-    ? {
-        sku: "SPOT-" + rng.int(100, 999),
-        headline: rng.pick(BRANDS) + " — Master Calibration Bundle",
-        blurb: rng.bool(0.65) ? 'Includes traceable cert & <foam> case ("Rev B").' : undefined,
-        price: cleanNum(rng.int(99, 399) * scale),
-        originalPrice: rng.bool(0.8) ? cleanNum(rng.int(420, 599) * scale) : undefined,
-        stock: rng.bool(0.15) ? 0 : rng.int(2, 40),
-        endsAtSec: BASE_EPOCH_SEC + rng.int(3600, 172800),
-      }
-    : null;
-
-  const cartItemCount = isLarge ? rng.int(1, 4) : rng.bool(0.45) ? 0 : 1;
+  const cartItemCount = isLarge ? rng.int(1, 4) : rng.bool(0.45) ? 0 : rng.int(1, view === "cart" ? 5 : 2);
   const cartItems = [];
   for (let c = 0; c < cartItemCount; c++) {
     cartItems.push({
       sku: "CRT-" + (10 + c) + "-" + rng.int(10, 99),
       title: BRANDS[(seed + c) % BRANDS.length] + " " + PRODUCT_NOUNS[(seed + c) % PRODUCT_NOUNS.length].trim(),
+      category: rng.pick(CATEGORY_POOL).slug,
       qty: rng.int(1, 6),
       unitPrice: cleanNum(rng.int(12, 190) * scale),
       backordered: rng.bool(0.2) ? true : undefined,
     });
   }
 
-  const totalPages = productCount === 0 ? 0 : isLarge ? rng.int(3, 8) : rng.bool(0.35) ? rng.int(2, 4) : 1;
-  const currentPage = totalPages <= 1 ? 1 : rng.int(1, totalPages);
-
-  return {
+  const data = {
     requestId: "req-" + seed + "-" + variant,
-    timestampSec: BASE_EPOCH_SEC + rng.int(-86400 * 30, 86400 * 365),
     theme,
-    compactMode: rng.bool(0.3),
     locale,
     user,
     promo,
+    flash: rng.bool(0.15) ? { text: rng.pick(FLASH_TEXTS), cartLink: rng.bool(0.5) } : null,
+    nav: { base, assets: base, view, path, current: path + (query ? "?q=" + query : "") },
     search: {
-      query: rng.pick(NASTY_QUERIES),
+      query: view === "listing" ? query : "",
       categorySlug: activeSlug,
       sortBy: rng.pick(SORT_OPTIONS),
       inStockOnly: rng.bool(0.35),
@@ -345,9 +326,6 @@ function generateRequest(seed, variant = "small") {
     },
     categories,
     breadcrumbs,
-    filters,
-    spotlight,
-    products,
     cart: {
       taxRate: rng.bool(0.15) ? 0 : 0.0825,
       freeShippingThreshold: cleanNum(150 * scale),
@@ -355,256 +333,235 @@ function generateRequest(seed, variant = "small") {
       notesOpen: rng.bool(0.25) ? true : undefined,
       items: cartItems,
     },
-    pagination: {
-      currentPage,
-      totalPages,
-      totalMatching: productCount === 0 ? 0 : productCount * Math.max(1, totalPages),
-    },
+    products: [],
+    filters: [],
+    activeFilters: [],
+    specs: [],
+    home: null,
+    listing: null,
+    product: null,
   };
+
+  if (view === "home") {
+    for (let i = rng.int(0, 8); i > 0; i--) data.products.push(generateProduct(rng, data.products.length, locale));
+    data.home = {
+      spotlight: rng.bool(0.8)
+        ? {
+            sku: "SPOT-" + rng.int(100, 999),
+            category: rng.pick(CATEGORY_POOL).slug,
+            headline: rng.pick(BRANDS) + " — Master Calibration Bundle",
+            blurb: rng.bool(0.65) ? 'Includes traceable cert & <foam> case ("Rev B").' : undefined,
+            price: cleanNum(rng.int(99, 399) * scale),
+            originalPrice: rng.bool(0.8) ? cleanNum(rng.int(420, 599) * scale) : undefined,
+            stock: rng.bool(0.15) ? 0 : rng.int(2, 40),
+            endsAtSec: BASE_EPOCH_SEC + rng.int(3600, 172800),
+          }
+        : null,
+    };
+  } else if (view === "listing") {
+    const filterGroupCount = isLarge ? rng.int(2, 4) : rng.bool(0.55) ? rng.int(1, 2) : 0;
+    const filters = data.filters;
+    const activeFilters = data.activeFilters;
+    for (let g = 0; g < filterGroupCount; g++) {
+      const optCount = isLarge ? rng.int(3, 8) : rng.int(0, 3);
+      const options = [];
+      for (let o = 0; o < optCount; o++) {
+        const opt = {
+          value: "opt-" + g + "-" + o,
+          label: g === 0 ? BRANDS[(seed + o) % BRANDS.length] : SPEC_VALUES[(seed + o) % SPEC_VALUES.length],
+          count: rng.bool(0.15) ? 0 : rng.int(1, 180),
+          selected: rng.bool(0.3),
+        };
+        if (opt.selected) activeFilters.push({ key: "f" + g + ":" + opt.value, label: opt.label, href: path + "?" + opt.value + "&x=<1>" });
+        options.push(opt);
+      }
+      filters.push({
+        id: "fg-" + g,
+        title: g === 0 ? "Brand" : g === 1 ? "Specification" : g === 2 ? "Certification" : "Availability",
+        disabled: rng.bool(0.1) ? true : undefined,
+        options,
+      });
+    }
+    const productCount = isLarge ? rng.int(170, 210) : rng.bool(0.15) ? 0 : rng.int(1, 4);
+    const products = data.products;
+    for (let i = 0; i < productCount; i++) products.push(generateProduct(rng, i, locale));
+    const totalPages = productCount === 0 ? 1 : isLarge ? rng.int(1, 8) : rng.bool(0.35) ? rng.int(2, 12) : 1;
+    const currentPage = rng.int(1, totalPages);
+    const pageSize = isLarge ? productCount : rng.pick([4, 24]);
+    const showingAll = totalPages > 1 && rng.bool(0.1);
+    const totalMatching = productCount === 0 ? 0 : showingAll ? productCount : productCount + (totalPages - 1) * pageSize;
+    data.listing = {
+      kind: query ? "search" : rng.pick(["category", "all"]),
+      title: query ? "Results for “" + query + "”" : "Category: " + activeSlug,
+      description: rng.bool(0.5) ? 'Hand-picked <tools> & "supplies".' : "",
+      clearHref: path + (query ? "?q=" + query : ""),
+      pagination: {
+        currentPage,
+        totalPages,
+        totalMatching,
+        firstIndex: totalMatching === 0 ? 0 : (currentPage - 1) * pageSize + 1,
+        lastIndex: totalMatching === 0 ? 0 : (currentPage - 1) * pageSize + productCount,
+        pageSize,
+        showingAll,
+        hrefPrefix: path + "?q=" + query + "&page=",
+      },
+    };
+  } else if (view === "product") {
+    const p = generateProduct(rng, rng.int(0, 99), locale);
+    for (let i = rng.int(0, 4); i > 0; i--) data.products.push(generateProduct(rng, 100 + data.products.length, locale));
+    data.specs = p.specs || [];
+    delete p.specs;
+    data.product = Object.assign(p, { description: rng.pick(REVIEW_BODIES), topReview: p.topReview || null });
+  }
+  return data;
 }
 
 function buildEdgeCaseInputs() {
+  const emptyCart = { taxRate: 0, freeShippingThreshold: 100, creditAdjustment: 0, items: [] };
+  const nav = (view, path, base) => ({ base: base || "", assets: base || "", view, path, current: path });
   const cases = [];
 
   // 0. Completely empty collections & nullable objects
   cases.push({
     requestId: "edge-00-all-empty",
-    timestampSec: BASE_EPOCH_SEC,
     theme: "light",
-    compactMode: false,
     locale: LOCALES[0],
     user: null,
     promo: null,
-    search: {
-      query: "",
-      categorySlug: "all",
-      sortBy: "featured",
-      inStockOnly: false,
-    },
+    flash: null,
+    nav: nav("listing", "/shop"),
+    search: { query: "", categorySlug: "all", sortBy: "featured", inStockOnly: false },
     categories: [],
     breadcrumbs: [],
-    filters: [],
-    spotlight: null,
+    cart: emptyCart,
     products: [],
-    cart: {
-      taxRate: 0,
-      freeShippingThreshold: 100,
-      creditAdjustment: 0,
-      items: [],
+    filters: [],
+    activeFilters: [],
+    specs: [],
+    home: null,
+    listing: {
+      kind: "all",
+      title: "",
+      description: "",
+      clearHref: "",
+      pagination: { currentPage: 1, totalPages: 0, totalMatching: 0, firstIndex: 0, lastIndex: 0, pageSize: 24, showingAll: false, hrefPrefix: "?page=" },
     },
-    pagination: { currentPage: 1, totalPages: 0, totalMatching: 0 },
+    product: null,
   });
 
   // 1. Nasty HTML/attribute escaping in empty-search state + boolean input flags
   cases.push({
     requestId: 'edge-01-xss-"attr"&<tag>',
-    timestampSec: 0, // Unix epoch exact 0 (Jan 01, 1970 00:00 UTC)
     theme: "dark",
-    compactMode: true,
     locale: LOCALES[1],
-    user: {
-      id: `u-<1>&"2"`,
-      name: `<script>alert("O'Connor & Sons")</script>`,
-      tier: "vip",
-      points: 0,
-      savedCount: 0,
-    },
-    promo: {
-      active: false, // hidden=""
-      urgent: true,
-      code: `X&Y"Z`,
-      html: "<strong>HIDDEN PROMO:</strong> <em>0%</em>",
-      minOrder: 0,
-    },
-    search: {
-      query: `"><img src=x onerror='1'>&`,
-      categorySlug: "metrology",
-      sortBy: "price-asc",
-      inStockOnly: true,
-      disabled: true,
-      readOnly: true,
-      required: true,
-    },
-    categories: [
-      { id: "c1", slug: "metrology", label: `Gauges <0.001"> & 'Calipers'`, count: 0, hot: true },
-    ],
+    user: { id: `u-<1>&"2"`, name: `<script>alert("O'Connor & Sons")</script>`, tier: "vip", points: 0, savedCount: 0 },
+    promo: { active: false, urgent: true, code: `X&Y"Z`, html: "<strong>HIDDEN PROMO:</strong> <em>0%</em>", minOrder: 0 },
+    flash: { text: `<img src=x onerror="1"> & 'quotes'`, cartLink: true },
+    nav: nav("listing", '/search"><b>', `/base/"'&<>`),
+    search: { query: `"><img src=x onerror='1'>&`, categorySlug: "metrology", sortBy: "price-asc", inStockOnly: true, disabled: true, readOnly: true, required: true },
+    categories: [{ id: "c1", slug: "metrology", label: `Gauges <0.001"> & 'Calipers'`, count: 0, hot: true }],
     breadcrumbs: [
       { href: "/", label: "Home & <Root>" },
       { href: "/search?a=1&b=2", label: `Query: "xss" & 'quotes'` },
     ],
-    filters: [
-      { id: "empty-fg", title: "Empty <Group>", disabled: true, options: [] },
-    ],
-    spotlight: null,
+    cart: { taxRate: 0.1, freeShippingThreshold: 50, creditAdjustment: -25, notesOpen: true, items: [] },
     products: [],
-    cart: {
-      taxRate: 0.1,
-      freeShippingThreshold: 50,
-      creditAdjustment: -25,
-      notesOpen: true,
-      items: [],
+    filters: [{ id: "empty-fg", title: "Empty <Group>", disabled: true, options: [] }],
+    activeFilters: [{ key: "x", label: `<b>bold</b> & "q"`, href: `/search?q="&x=<y>` }],
+    specs: [],
+    home: null,
+    listing: {
+      kind: "search",
+      title: `Results for "><script>`,
+      description: "",
+      clearHref: `/search?q="><`,
+      pagination: { currentPage: 1, totalPages: 1, totalMatching: 0, firstIndex: 0, lastIndex: 0, pageSize: 24, showingAll: false, hrefPrefix: `?q="&page=` },
     },
-    pagination: { currentPage: 1, totalPages: 1, totalMatching: 0 },
+    product: null,
   });
 
-  // 2. Zero prices, negative rebates/adjustments, pre-1970 negative epoch, unicode/RTL/emoji
+  // 2. Zero prices, negative rebates/adjustments, unicode/RTL/emoji, a product page
   cases.push({
     requestId: "edge-02-zeros-negatives-unicode",
-    timestampSec: -86400, // Dec 31, 1969 00:00 UTC
-    theme: "contrast",
-    compactMode: false,
+    theme: "light",
     locale: LOCALES[2], // de-DE (1.234,56)
-    user: {
-      id: "u-intl",
-      name: "  佐藤 健太 & فاطمة 🚀  ",
-      tier: "pro",
-      points: -150,
-      savedCount: 3,
-      avatarColor: "#be123c",
-    },
-    promo: {
-      active: true,
-      urgent: false,
-      code: "EURO-2026",
-      html: "<strong>GRATIS:</strong> Kalibrierschein <em>inklusive</em>",
-      minOrder: 1250.5,
-    },
-    search: {
-      query: "両刃のこぎり ±0.01",
-      categorySlug: "cutting",
-      sortBy: "rating",
-      inStockOnly: false,
-    },
-    categories: [
-      { id: "c-cut", slug: "cutting", label: "Sägen & Schneiden", count: 1024 },
-    ],
+    user: { id: "u-intl", name: "  佐藤 健太 & فاطمة 🚀  ", tier: "pro", points: -150, savedCount: 3, avatarColor: "#be123c" },
+    promo: { active: true, urgent: false, code: "EURO-2026", html: "<strong>GRATIS:</strong> Kalibrierschein <em>inklusive</em>", minOrder: 1250.5 },
+    flash: null,
+    nav: nav("product", "/p/NEG-REB-002", "/de"),
+    search: { query: "", categorySlug: "cutting", sortBy: "rating", inStockOnly: false },
+    categories: [{ id: "c-cut", slug: "cutting", label: "Sägen & Schneiden", count: 1024 }],
     breadcrumbs: [{ href: "/", label: "Startseite" }],
-    filters: [
-      {
-        id: "mat",
-        title: "Werkstoff",
-        options: [
-          { value: "hss", label: "HSS-Co5 <M35>", count: 0, selected: false },
-          { value: "vhm", label: 'Vollhartmetall "TiAlN"', count: 12, selected: true },
-        ],
-      },
-    ],
-    spotlight: {
-      sku: "FREE-CAL-0",
-      headline: "Free Calibration Coupon — 0,00 €",
-      price: 0,
-      originalPrice: 49.9,
-      stock: 0,
-      endsAtSec: 0,
-    },
-    products: [
-      {
-        sku: "ZERO-001",
-        title: "Sample Shim Pack (0.00mm–1.00mm) — Free w/ Order",
-        brand: "Starrett & Co.",
-        category: "metrology",
-        price: 0,
-        stock: 0,
-        rating: 0,
-        reviewCount: 0,
-      },
-      {
-        sku: "NEG-REB-002",
-        title: `Precision Level 200mm "Master" <0.02mm/m> 🛠️`,
-        brand: "Mitutoyo",
-        category: "metrology",
-        price: 1234.5,
-        originalPrice: 1599.0,
-        rebateAmount: -75.25,
-        stock: 3,
-        rating: 5,
-        reviewCount: 12840,
-        featured: true,
-        clearance: true,
-        shipsAtSec: BASE_EPOCH_SEC + 86400,
-        specs: [
-          { label: "Length", value: "200 mm" },
-          { label: "Sensitivity", value: `0.02 mm/m ("4 arcsec")` },
-        ],
-        topReview: {
-          author: `Dr.-Ing. H. "Hans" Weiß & Partner`,
-          body: `Dead-flat sole; zero drift between 18°C & 24°C <verified>.`,
-          verified: true,
-          createdAtSec: BASE_EPOCH_SEC - 864000,
-        },
-      },
-    ],
     cart: {
       taxRate: 0.19,
       freeShippingThreshold: 2000,
       creditAdjustment: -100.5,
       notesOpen: false,
-      items: [
-        {
-          sku: "NEG-REB-002",
-          title: `Precision Level 200mm "Master"`,
-          qty: 1,
-          unitPrice: 1234.5,
-          backordered: true,
-        },
-      ],
+      items: [{ sku: "NEG-REB-002", title: `Precision Level 200mm "Master"`, category: "metrology", qty: 1, unitPrice: 1234.5, backordered: true }],
     },
-    pagination: { currentPage: 3, totalPages: 6, totalMatching: 120 },
+    products: [
+      { sku: "ZERO-001", title: "Sample Shim Pack (0.00mm–1.00mm) — Free w/ Order", brand: "Starrett & Co.", category: "metrology", price: 0, stock: 0, rating: 0, reviewCount: 0 },
+    ],
+    filters: [],
+    activeFilters: [],
+    specs: [
+      { label: "Length", value: "200 mm" },
+      { label: "Sensitivity", value: `0.02 mm/m ("4 arcsec")` },
+    ],
+    home: null,
+    listing: null,
+    product: {
+      sku: "NEG-REB-002",
+      title: `Precision Level 200mm "Master" <0.02mm/m> 🛠️`,
+      brand: "Mitutoyo",
+      category: "metrology",
+      price: 1234.5,
+      originalPrice: 1599.0,
+      rebateAmount: -75.25,
+      stock: 3,
+      rating: 5,
+      reviewCount: 12840,
+      featured: true,
+      clearance: true,
+      shipsAtSec: BASE_EPOCH_SEC + 86400,
+      description: "Dead-flat sole; zero drift between 18°C & 24°C <verified>.",
+      topReview: {
+        author: `Dr.-Ing. H. "Hans" Weiß & Partner`,
+        body: `Dead-flat sole; zero drift between 18°C & 24°C <verified>.`,
+        verified: true,
+        createdAtSec: -86400,
+      },
+    },
   });
 
-  // 3. JPY 0-decimal formatting + single-word user initials + whitespace-only user name
+  // 3. JPY 0-decimal formatting, whitespace-only user name, home page without spotlight, cart page
   cases.push({
     requestId: "edge-03-jpy-zero-decimals",
-    timestampSec: BASE_EPOCH_SEC + 99999,
-    theme: "light",
-    compactMode: true,
+    theme: "dark",
     locale: LOCALES[4], // ja-JP (decimals: 0)
-    user: {
-      id: "u-single",
-      name: "   ",
-      tier: "member",
-      points: 1234567,
-      savedCount: 1,
-    },
+    user: { id: "u-single", name: "   ", tier: "member", points: 1234567, savedCount: 1 },
     promo: null,
-    search: {
-      query: "",
-      categorySlug: "all",
-      sortBy: "price-desc",
-      inStockOnly: false,
-    },
+    flash: { text: "", cartLink: false },
+    nav: nav("cart", "/cart"),
+    search: { query: "", categorySlug: "all", sortBy: "price-desc", inStockOnly: false },
     categories: [],
     breadcrumbs: [],
-    filters: [],
-    spotlight: null,
-    products: [
-      {
-        sku: "JP-900",
-        title: "ミツトヨ デジタルノギス 150mm",
-        brand: "Mitutoyo",
-        category: "metrology",
-        price: 18500,
-        originalPrice: 22000,
-        stock: 42,
-        rating: 4.9,
-        reviewCount: 308,
-        shipsAtSec: BASE_EPOCH_SEC + 172800,
-        specs: [],
-        topReview: {
-          author: "田中",
-          body: "最高の精度 & 使いやすさ 'A+'",
-          verified: false,
-          createdAtSec: BASE_EPOCH_SEC,
-        },
-      },
-    ],
     cart: {
       taxRate: 0.1,
       freeShippingThreshold: 10000,
       creditAdjustment: 0,
-      items: [{ sku: "JP-900", title: "デジタルノギス", qty: 2, unitPrice: 18500 }],
+      items: [
+        { sku: "JP-900", title: "ミツトヨ デジタルノギス 150mm", category: "metrology", qty: 2, unitPrice: 18500 },
+        { sku: "JP-901", title: "デジタルノギス", category: "unknown-cat", qty: 99, unitPrice: 0 },
+      ],
     },
-    pagination: { currentPage: 1, totalPages: 2, totalMatching: 25 },
+    products: [],
+    filters: [],
+    activeFilters: [],
+    specs: [],
+    home: null,
+    listing: null,
+    product: null,
   });
 
   return cases;
@@ -643,9 +600,9 @@ function getLargeCorpus(count = 100) {
   return out;
 }
 
-// Fixed 500-input corpus for correctness checking (`check.js`):
-// - 4 edge-case inputs + 471 seeded small-page inputs (~50 elements each)
-// - 25 seeded large-page inputs (~200 products, ~3,300 elements each)
+// Fixed 500-input benchmark corpus for correctness checking:
+// - 4 edge-case inputs + 471 seeded small pages (listing, product, home, cart, sign-in, 404)
+// - 25 seeded large pages (listings of ~200 products)
 function getCheckCorpus() {
   if (_checkCorpus) return _checkCorpus;
   const small = getSmallCorpus();

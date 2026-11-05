@@ -19,7 +19,9 @@ const esbuild = require("esbuild");
 const babel = require("@babel/core");
 
 const ROOT = path.join(__dirname, "..");
-const OUT = path.join(ROOT, "dist", "app.js");
+// SRC_DIR / OUT_FILE override the input directory and output file (used to try app variants).
+const SRC = process.env.SRC_DIR ? path.resolve(process.env.SRC_DIR) : path.join(ROOT, "src");
+const OUT = process.env.OUT_FILE ? path.resolve(process.env.OUT_FILE) : path.join(ROOT, "dist", "app.js");
 
 const reactExternal = {
   name: "react-external",
@@ -49,7 +51,7 @@ const babelJsx = {
 
 async function main() {
   const result = await esbuild.build({
-    entryPoints: [path.join(ROOT, "src", "App.jsx")],
+    entryPoints: [path.join(SRC, "App.jsx")],
     bundle: true,
     write: false,
     format: "esm",

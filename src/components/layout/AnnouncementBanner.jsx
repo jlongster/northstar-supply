@@ -16,17 +16,22 @@ export function AnnouncementBanner(props) {
       hidden={!promo.active}
       data-campaign={promo.code}
     >
-      <span
-        className="ns-promo-html"
-        dangerouslySetInnerHTML={{ __html: promo.html }}
-      />
-      {promo.minOrder !== undefined && promo.minOrder > 0 ? (
-        <span className="ns-promo-min">
-          {" "}
-          (Min. order {formatMoney(promo.minOrder, locale)})
-        </span>
-      ) : null}
-      <code className="ns-promo-code">{promo.code}</code>
+      <p className="ns-promo-inner ns-container">
+        <span
+          className="ns-promo-html"
+          dangerouslySetInnerHTML={{ __html: promo.html }}
+        />
+        {promo.minOrder !== undefined && promo.minOrder > 0 ? (
+          <span className="ns-promo-min">
+            Min. order {formatMoney(promo.minOrder, locale)}
+          </span>
+        ) : null}
+        {promo.code ? (
+          <span className="ns-promo-code">
+            Code <code>{promo.code}</code>
+          </span>
+        ) : null}
+      </p>
     </section>
   );
 }

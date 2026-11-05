@@ -1,52 +1,80 @@
 "use strict";
 
-// Byte-identical check over the fixed 500-input corpus (src/data.js getCheckCorpus()):
+// Byte-identical checks of the specialized renderers against renderToString(dist/app.js):
 //
-//   node test/compare.js                      dist/app.js vs the original single-file app
-//                                             (test/fixtures/app.original.js), both with renderToString
-//   node test/compare.js dist/render-prepack.js
-//   node test/compare.js dist/render-hybrid.js
-//                                             a standalone specialized renderer (exports render(data))
-//                                             vs renderToString of dist/app.js
+//   node test/compare.js [renderer.js ...] [--corpus live|bench|all]
 //
-// Each side gets its own deep copy of every input. Exits non-zero on any difference.
+// Defaults: both dist/render-prepack.js and dist/render-hybrid.js, on both corpora:
+//   live   600 live-store requests (store/corpus.js getLiveCheckCorpus: 590 random requests over
+//          every route, query, sort, filter, page, cart, theme and sign-in state, plus 10
+//          whole-catalog listings); seeds disjoint from the specializers' training data
+//   bench  the 500-input benchmark corpus (src/data.js getCheckCorpus: random, escaping-heavy data,
+//          4 edge cases, 471 small pages, 25 large listings)
+//
+// Each side gets its own deep copy of every input. Prints the fallback rate (inputs a specialized
+// renderer handed to React). Exits non-zero on any difference.
 process.env.NODE_ENV = process.env.NODE_ENV || "production";
 const path = require("path");
 const React = require("react");
 const ReactDOMServer = require("react-dom/server");
-const { getCheckCorpus } = require("../src/data.js");
+const { getCheckCorpus, corpusFingerprint } = require("../src/data.js");
+const { getLiveCheckCorpus } = require("../store/corpus.js");
 
 const ROOT = path.join(__dirname, "..");
-const target = process.argv[2];
+const args = process.argv.slice(2);
+const corpusArg = args.includes("--corpus") ? args[args.indexOf("--corpus") + 1] : "all";
+const targets = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--corpus");
+const renderers = (targets.length ? targets : ["dist/render-prepack.js", "dist/render-hybrid.js"]).map((t) => ({
+  name: t,
+  render: require(path.resolve(ROOT, t)).render,
+}));
+const App = require(path.join(ROOT, "dist/app.js"));
+const reference = (data) => ReactDOMServer.renderToString(React.createElement(App, { data }));
+const corpora = [
+  corpusArg !== "bench" && { name: "live", inputs: getLiveCheckCorpus() },
+  corpusArg !== "live" && { name: "bench", inputs: getCheckCorpus() },
+].filter(Boolean);
 
-const renderWith = (App) => (data) => ReactDOMServer.renderToString(React.createElement(App, { data }));
-const [refName, reference, actualName, actual] = target
-  ? ["renderToString(dist/app.js)", renderWith(require(path.join(ROOT, "dist/app.js"))), target, require(path.resolve(target)).render]
-  : ["renderToString(test/fixtures/app.original.js)", renderWith(require("./fixtures/app.original.js")), "renderToString(dist/app.js)", renderWith(require(path.join(ROOT, "dist/app.js")))];
-
-const corpus = getCheckCorpus();
-let pass = 0;
-const failures = [];
-for (let i = 0; i < corpus.length; i++) {
-  const expected = reference(structuredClone(corpus[i]));
-  let got;
-  try {
-    got = actual(structuredClone(corpus[i]));
-  } catch (err) {
-    got = "<<threw " + (err && err.stack) + ">>";
+let failed = 0;
+for (const corpus of corpora) {
+  const expected = corpus.inputs.map((data) => reference(structuredClone(data)));
+  console.log(`corpus ${corpus.name}: ${corpus.inputs.length} inputs, fingerprint ${corpusFingerprint(corpus.inputs)}`);
+  for (const r of renderers) {
+    let pass = 0;
+    let fallbacks = 0;
+    const reasons = {};
+    const failures = [];
+    corpus.inputs.forEach((data, i) => {
+      const stats = r.render.stats;
+      const before = stats ? stats.fallbacks : 0;
+      const beforeReasons = stats && stats.fallbackReasons ? Object.assign({}, stats.fallbackReasons) : {};
+      let got;
+      try {
+        got = r.render(structuredClone(data));
+      } catch (err) {
+        got = "<<threw " + (err && err.stack) + ">>";
+      }
+      if (stats && stats.fallbacks > before) {
+        fallbacks++;
+        for (const k of Object.keys(stats.fallbackReasons || {})) {
+          const d = stats.fallbackReasons[k] - (beforeReasons[k] || 0);
+          if (d > 0) reasons[k] = (reasons[k] || 0) + d;
+        }
+      }
+      if (got === expected[i]) return pass++;
+      let at = 0;
+      while (at < expected[i].length && expected[i][at] === got[at]) at++;
+      failures.push({ i, at, expected: expected[i].slice(Math.max(0, at - 80), at + 80), got: got.slice(Math.max(0, at - 80), at + 80) });
+    });
+    const n = corpus.inputs.length;
+    console.log(
+      `  ${r.name}: ${pass}/${n} byte-identical, ${fallbacks} fallbacks (${((fallbacks / n) * 100).toFixed(1)}%)` +
+        (Object.keys(reasons).length ? " " + JSON.stringify(reasons) : "")
+    );
+    for (const f of failures.slice(0, 3)) {
+      console.log(`    FAIL #${f.i} at offset ${f.at}\n      expected: ${JSON.stringify(f.expected)}\n      got:      ${JSON.stringify(f.got)}`);
+    }
+    failed += failures.length;
   }
-  if (got === expected) {
-    pass++;
-    continue;
-  }
-  let at = 0;
-  while (at < expected.length && expected[at] === got[at]) at++;
-  failures.push({ index: i, requestId: corpus[i].requestId, at, expected: expected.slice(Math.max(0, at - 60), at + 60), got: got.slice(Math.max(0, at - 60), at + 60) });
 }
-
-console.log(`${actualName} vs ${refName}: ${pass}/${corpus.length} byte-identical`);
-for (const f of failures.slice(0, 3)) {
-  console.log(`\nFAIL #${f.index} (${f.requestId}) at offset ${f.at}\n  expected: ${JSON.stringify(f.expected)}\n  got:      ${JSON.stringify(f.got)}`);
-}
-if (actual.stats) console.log("renderer stats:", JSON.stringify(actual.stats));
-process.exitCode = failures.length ? 1 : 0;
+process.exitCode = failed ? 1 : 0;

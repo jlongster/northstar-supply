@@ -1,4 +1,4 @@
 import React from "react";
 
-// "light" | "dark" | "contrast"
+// "light" | "dark"
 export var ThemeContext = React.createContext("light");

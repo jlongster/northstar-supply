@@ -11,7 +11,10 @@ export function StarRating(props) {
   return (
     <div
       className="ns-rating"
-      aria-label={"Rated " + clamped.toFixed(1) + " out of 5"}
+      role="img"
+      aria-label={
+        "Rated " + clamped.toFixed(1) + " out of 5, " + formatInt(count, locale.groupSep) + " reviews"
+      }
     >
       <span className="ns-rating-track" aria-hidden="true">
         <span
@@ -22,8 +25,8 @@ export function StarRating(props) {
           }}
         />
       </span>
-      <span className="ns-rating-num">{clamped.toFixed(1)}</span>
-      <span className="ns-rating-count">
+      <span className="ns-rating-num" aria-hidden="true">{clamped.toFixed(1)}</span>
+      <span className="ns-rating-count" aria-hidden="true">
         ({formatInt(count, locale.groupSep)})
       </span>
     </div>

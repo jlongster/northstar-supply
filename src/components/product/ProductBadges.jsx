@@ -9,12 +9,13 @@ export function ProductBadges(props) {
   }
   return (
     <div className="ns-badges">
-      {p.featured ? (
-        <span className="ns-badge ns-badge-featured">Featured</span>
-      ) : null}
-      {onSale ? <span className="ns-badge ns-badge-sale">Sale</span> : null}
       {p.clearance ? (
         <span className="ns-badge ns-badge-clearance">Clearance</span>
+      ) : onSale ? (
+        <span className="ns-badge ns-badge-sale">Sale</span>
+      ) : null}
+      {p.featured ? (
+        <span className="ns-badge ns-badge-featured">Best seller</span>
       ) : null}
     </div>
   );

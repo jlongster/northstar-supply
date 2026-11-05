@@ -11,8 +11,9 @@ export function LoyaltyBadge(props) {
       className={cx("ns-tier", "ns-tier-" + tier)}
       data-tier={tier}
       data-points={props.points}
+      title={formatInt(props.points, locale.groupSep) + " points"}
     >
-      {tier.toUpperCase()} ({formatInt(props.points, locale.groupSep)} pts)
+      {tier.toUpperCase()}
     </span>
   );
 }

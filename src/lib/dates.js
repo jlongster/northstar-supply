@@ -1,3 +1,5 @@
+var DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 var MONTH_NAMES = [
   "Jan",
   "Feb",
@@ -52,4 +54,19 @@ export function formatDateUTC(epochSec, includeTime) {
   var hh = Math.floor(remSec / 3600);
   var mm = Math.floor((remSec - hh * 3600) / 60);
   return base + " " + pad2(hh) + ":" + pad2(mm) + " UTC";
+}
+
+// "Sat, Nov 7" (UTC), for ship dates and offer end dates.
+export function formatShortDate(epochSec) {
+  var days = Math.floor(Math.floor(epochSec) / 86400);
+  var weekday = (((days + 4) % 7) + 7) % 7;
+  var full = formatDateUTC(epochSec, false);
+  var day = full.slice(4, 6);
+  return (
+    DAY_NAMES[weekday] +
+    ", " +
+    full.slice(0, 3) +
+    " " +
+    (day.charAt(0) === "0" ? day.slice(1) : day)
+  );
 }

@@ -11,17 +11,20 @@ export function PriceBlock(props) {
     ? Math.round(((orig - price) / orig) * 100)
     : 0;
   return (
-    <div className="ns-price-block" data-on-sale={hasDiscount}>
-      <span className="ns-price-current">{formatMoney(price, locale)}</span>
+    <div className={props.large ? "ns-price-block ns-price-large" : "ns-price-block"} data-on-sale={hasDiscount}>
+      <span className="ns-price-current">{price === 0 ? "Free" : formatMoney(price, locale)}</span>
       {hasDiscount ? (
         <>
-          <del className="ns-price-orig">{formatMoney(orig, locale)}</del>
-          <span className="ns-price-save">Save {pctOff}%</span>
+          <del className="ns-price-orig">
+            <span className="ns-sr-only">Was </span>
+            {formatMoney(orig, locale)}
+          </del>
+          <span className="ns-price-save">−{pctOff}%</span>
         </>
       ) : null}
       {typeof props.rebateAmount === "number" && props.rebateAmount !== 0 ? (
         <span className="ns-price-rebate">
-          Rebate: {formatMoney(props.rebateAmount, locale)}
+          {formatMoney(props.rebateAmount, locale)} mail-in rebate
         </span>
       ) : null}
     </div>
